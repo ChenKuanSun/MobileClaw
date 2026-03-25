@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MobileClaw — Android AI Agent</title>
+        <meta
+            name="description"
+            content="MobileClaw is an Android-native AI agent that controls your phone with natural language. The mobile port of OpenClaw."
+        />
+        <meta
+            property="og:title"
+            content="MobileClaw — Your Phone, Your Agent"
+        />
+        <meta
+            property="og:description"
+            content="An Android-native AI agent that controls your phone. The mobile port of OpenClaw."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://chenkuansun.github.io/MobileClaw/" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <link rel="icon" href="assets/ic_launcher.png" type="image/png" />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <!-- Navigation -->
+        <nav class="navbar">
+            <a href="/" class="navbar-brand">
+                <img src="assets/ic_launcher.png" alt="MobileClaw" />
+                <span>MobileClaw</span>
+            </a>
+            <button
+                class="mobile-menu-btn"
+                onclick="document.querySelector('.navbar-links').classList.toggle('open')"
+                aria-label="Toggle menu"
+            >
+                ☰
+            </button>
+            <ul class="navbar-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#tools">Tools</a></li>
+                <li><a href="#screenshots">Screenshots</a></li>
+                <li>
+                    <a
+                        href="https://github.com/ChenKuanSun/mobileClaw"
+                        target="_blank"
+                        rel="noopener"
+                        class="btn-github"
+                    >
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                        >
+                            <path
+                                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                            />
+                        </svg>
+                        GitHub
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Hero -->
+        <section class="hero">
+            <img
+                src="assets/logo.png"
+                alt="MobileClaw Logo"
+                class="hero-logo"
+            />
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Open Source — MIT License
+            </div>
+            <h1>Your Phone, <span class="gradient">Your Agent</span></h1>
+            <p class="hero-subtitle">
+                The Android port of <strong>OpenClaw</strong> — an on-device AI
+                agent that controls your phone with natural language. No server
+                required.
+            </p>
+            <div class="hero-actions">
+                <a
+                    href="https://github.com/ChenKuanSun/mobileClaw/releases/latest"
+                    target="_blank"
+                    rel="noopener"
+                    class="btn-primary"
+                >
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download APK
+                </a>
+                <a
+                    href="https://github.com/ChenKuanSun/mobileClaw"
+                    target="_blank"
+                    rel="noopener"
+                    class="btn-secondary"
+                >
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                        />
+                    </svg>
+                    View Source
+                </a>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section id="features" class="section fade-in">
+            <div class="section-label">Features</div>
+            <h2 class="section-title">
+                Everything your phone can do,<br />now with AI
+            </h2>
+            <p class="section-desc">
+                29 native Android tools, 21 pre-built skills, 10 cloud AI
+                providers, and on-device Gemma 4 — all on your phone.
+            </p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🛠️</div>
+                    <h3>29 Native Tools</h3>
+                    <p>
+                        SMS, calls, calendar, camera, contacts, file system, web
+                        browser, UI automation, screen capture, notifications,
+                        and more.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>21 Pre-built Skills</h3>
+                    <p>
+                        Morning routine, email, messaging, navigation, social
+                        media, smart home, finance, health — ready to use out of
+                        the box.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>10 Cloud + On-Device AI</h3>
+                    <p>
+                        Claude, GPT, Gemini, and 7 more cloud providers.
+                        Plus Gemma 4 runs locally — no API key, no internet.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎙️</div>
+                    <h3>Voice Control</h3>
+                    <p>
+                        Talk to your phone naturally. Speech-to-text input and
+                        text-to-speech output for hands-free operation.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⏰</div>
+                    <h3>Scheduled Automation</h3>
+                    <p>
+                        Set up cron-style tasks that run automatically. Morning
+                        briefings, regular check-ins, recurring workflows.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Privacy First</h3>
+                    <p>
+                        All data stays on your device. Encrypted API key
+                        storage. No analytics, no tracking, no telemetry. You
+                        own everything.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section id="how-it-works" class="section fade-in">
+            <div class="section-label">Get Started</div>
+            <h2 class="section-title">Up and running in 3 steps</h2>
+
+            <div class="steps">
+                <div class="step">
+                    <h3>Install</h3>
+                    <p>
+                        Download the APK from GitHub Releases and install it on
+                        your Android device. No account required, no server
+                        setup.
+                    </p>
+                </div>
+                <div class="step">
+                    <h3>Configure</h3>
+                    <p>
+                        Add a cloud API key (Claude, GPT, Gemini) or download
+                        Gemma 4 to run AI entirely on-device — no key needed.
+                    </p>
+                </div>
+                <div class="step">
+                    <h3>Command</h3>
+                    <p>
+                        Tell your phone what to do in plain language. MobileClaw
+                        handles the rest — tapping, typing, navigating.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tools -->
+        <section id="tools" class="section tools-section fade-in">
+            <div class="section-label">Capabilities</div>
+            <h2 class="section-title">29 built-in tools</h2>
+            <p
+                class="section-desc"
+                style="margin-left: auto; margin-right: auto"
+            >
+                Every tool runs natively on Android — no cloud processing, no
+                intermediary servers.
+            </p>
+
+            <div class="tools-grid">
+                <span class="tool-tag">SMS</span>
+                <span class="tool-tag">Call Log</span>
+                <span class="tool-tag">Contacts</span>
+                <span class="tool-tag">Calendar</span>
+                <span class="tool-tag">Phone Call</span>
+                <span class="tool-tag">Photos</span>
+                <span class="tool-tag">File System</span>
+                <span class="tool-tag">Web Browser</span>
+                <span class="tool-tag">HTTP API</span>
+                <span class="tool-tag">UI Automation</span>
+                <span class="tool-tag">Screen Capture</span>
+                <span class="tool-tag">Notifications</span>
+                <span class="tool-tag">App Launcher</span>
+                <span class="tool-tag">Navigation</span>
+                <span class="tool-tag">Clipboard</span>
+                <span class="tool-tag">Alarms & Timers</span>
+                <span class="tool-tag">Media Control</span>
+                <span class="tool-tag">Volume</span>
+                <span class="tool-tag">Brightness</span>
+                <span class="tool-tag">Flashlight</span>
+                <span class="tool-tag">System Info</span>
+                <span class="tool-tag">Scheduled Tasks</span>
+                <span class="tool-tag">Skill Author</span>
+                <span class="tool-tag">Memory</span>
+                <span class="tool-tag">Session History</span>
+                <span class="tool-tag">Sub-Agent</span>
+                <span class="tool-tag">Channel</span>
+                <span class="tool-tag">Telegram</span>
+                <span class="tool-tag">OpenAI</span>
+            </div>
+
+            <div style="margin-top: 3rem">
+                <div class="section-label">Supported Providers</div>
+                <div class="providers-row">
+                    <span class="provider-badge">Anthropic Claude</span>
+                    <span class="provider-badge">OpenAI</span>
+                    <span class="provider-badge">Google Gemini</span>
+                    <span class="provider-badge">OpenRouter</span>
+                    <span class="provider-badge">Mistral</span>
+                    <span class="provider-badge">Together AI</span>
+                    <span class="provider-badge">Groq</span>
+                    <span class="provider-badge">xAI (Grok)</span>
+                    <span class="provider-badge">DeepSeek</span>
+                    <span class="provider-badge">Fireworks AI</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Screenshots -->
+        <section id="screenshots" class="section screenshots fade-in">
+            <div class="section-label">App Preview</div>
+            <h2 class="section-title">See it in action</h2>
+
+            <div class="phone-mockups">
+                <!-- Chat Screen -->
+                <div>
+                    <div class="phone-frame">
+                        <div class="phone-screen">
+                            <div class="mock-chat">
+                                <div class="mock-chat-header">MobileClaw</div>
+                                <div class="mock-bubble user">
+                                    Read my latest unread messages and summarize
+                                    them
+                                </div>
+                                <div class="mock-tool">
+                                    ▶ sms_read — checking unread messages...
+                                </div>
+                                <div class="mock-bubble agent">
+                                    You have 3 unread messages:<br /><br />•
+                                    Mom: "Don't forget dinner tomorrow at 7"<br />•
+                                    Alex: "Meeting moved to 3pm"<br />• Bank:
+                                    Security alert — new login detected
+                                </div>
+                                <div class="mock-bubble user">
+                                    Reply to Mom: "Got it, see you then! 🎉"
+                                </div>
+                                <div class="mock-tool">
+                                    ▶ sms_send — sending reply...
+                                </div>
+                                <div class="mock-bubble agent">
+                                    Done! Reply sent to Mom.
+                                </div>
+                                <div class="mock-input">
+                                    Ask MobileClaw anything...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="phone-label">Chat</p>
+                </div>
+
+                <!-- Skills Screen -->
+                <div>
+                    <div class="phone-frame">
+                        <div class="phone-screen">
+                            <div class="mock-skills">
+                                <div class="mock-skills-header">Skills</div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">☀️</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Morning Routine</h4>
+                                        <p>Weather, calendar, news digest</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">📧</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Email Manager</h4>
+                                        <p>Read, summarize, draft replies</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">🏠</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Smart Home</h4>
+                                        <p>Control IoT devices via apps</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">💰</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Finance</h4>
+                                        <p>Track expenses, check markets</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">🗺️</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Navigation</h4>
+                                        <p>Directions, transit, ETA</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">🌐</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Web Research</h4>
+                                        <p>Search, summarize, extract</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">🏥</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Health</h4>
+                                        <p>Medication, steps, wellness</p>
+                                    </div>
+                                </div>
+                                <div class="mock-skill-item">
+                                    <span class="mock-skill-icon">🛒</span>
+                                    <div class="mock-skill-info">
+                                        <h4>Shopping</h4>
+                                        <p>Price compare, list, deals</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="phone-label">Skills</p>
+                </div>
+
+                <!-- Settings Screen -->
+                <div>
+                    <div class="phone-frame">
+                        <div class="phone-screen">
+                            <div class="mock-settings">
+                                <div class="mock-settings-header">Settings</div>
+                                <div class="mock-setting-group">
+                                    <div class="mock-setting-group-title">
+                                        AI Provider
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Provider</span
+                                        >
+                                        <span class="mock-setting-value"
+                                            >Anthropic Claude</span
+                                        >
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Model</span
+                                        >
+                                        <span class="mock-setting-value"
+                                            >claude-sonnet-4-6</span
+                                        >
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >API Key</span
+                                        >
+                                        <span class="mock-setting-value"
+                                            >••••••••</span
+                                        >
+                                    </div>
+                                </div>
+                                <div class="mock-setting-group">
+                                    <div class="mock-setting-group-title">
+                                        Permissions
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Confirm actions</span
+                                        >
+                                        <div class="mock-toggle"></div>
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Accessibility</span
+                                        >
+                                        <div class="mock-toggle"></div>
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Notifications</span
+                                        >
+                                        <div class="mock-toggle off"></div>
+                                    </div>
+                                </div>
+                                <div class="mock-setting-group">
+                                    <div class="mock-setting-group-title">
+                                        Voice
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Voice input</span
+                                        >
+                                        <div class="mock-toggle"></div>
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Text-to-speech</span
+                                        >
+                                        <div class="mock-toggle off"></div>
+                                    </div>
+                                </div>
+                                <div class="mock-setting-group">
+                                    <div class="mock-setting-group-title">
+                                        About
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >Version</span
+                                        >
+                                        <span class="mock-setting-value"
+                                            >1.0.0</span
+                                        >
+                                    </div>
+                                    <div class="mock-setting-row">
+                                        <span class="mock-setting-label"
+                                            >License</span
+                                        >
+                                        <span class="mock-setting-value"
+                                            >Apache 2.0</span
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="phone-label">Settings</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta fade-in">
+            <h2>Ready to take control?</h2>
+            <p>
+                MobileClaw is free, open source, and runs entirely on your
+                device.
+            </p>
+            <div class="hero-actions">
+                <a
+                    href="https://github.com/ChenKuanSun/mobileClaw/releases/latest"
+                    target="_blank"
+                    rel="noopener"
+                    class="btn-primary"
+                >
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download APK
+                </a>
+                <a
+                    href="https://github.com/ChenKuanSun/mobileClaw"
+                    target="_blank"
+                    rel="noopener"
+                    class="btn-secondary"
+                >
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                        />
+                    </svg>
+                    Star on GitHub
+                </a>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-links">
+                <a
+                    href="https://github.com/ChenKuanSun/mobileClaw"
+                    target="_blank"
+                    rel="noopener"
+                    >GitHub</a
+                >
+                <a
+                    href="https://github.com/ChenKuanSun/mobileClaw/blob/main/LICENSE"
+                    target="_blank"
+                    rel="noopener"
+                    >License</a
+                >
+                <a href="mailto:cksun@affiora.ai">Contact</a>
+            </div>
+            <p class="footer-copy">
+                &copy; 2026 CK Sun. MIT License.
+            </p>
+        </footer>
+
+        <!-- Scroll animations -->
+        <script>
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add("visible");
+                        }
+                    });
+                },
+                { threshold: 0.1 },
+            );
+
+            document
+                .querySelectorAll(".fade-in")
+                .forEach((el) => observer.observe(el));
+        </script>
+    </body>
+</html>
