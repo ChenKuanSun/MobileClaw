@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MobileClaw</string>
+    <string name="agent_service_title">MobileClaw</string>
+    <string name="agent_service_standby">Standby</string>
+    <string name="agent_service_processing">Processing…</string>
+    <string name="accessibility_service_description">MobileClaw uses accessibility to read and interact with apps on your behalf. This enables the AI to automate tasks across any app.</string>
+</resources>
