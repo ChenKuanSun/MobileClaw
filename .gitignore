@@ -13,3 +13,13 @@ google-services.json
 *.keystore
 app/release/
 .DS_Store
+
+# Additional
+**/.DS_Store
+*.apk
+*.aab
+*.hprof
+.env
+secrets.properties
+app/release/output-metadata.json
+.cxx/

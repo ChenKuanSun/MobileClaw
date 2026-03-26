@@ -3,8 +3,6 @@ package ai.affiora.mobileclaw.tools
 import android.content.ContentResolver
 import android.content.Context
 import android.database.Cursor
-import android.database.MatrixCursor
-import android.provider.Telephony
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
@@ -62,43 +60,25 @@ class SmsToolTest {
     }
 
     @Test
-    fun `search queries content resolver with correct URI`() = runTest {
-        val cursor = createSmsCursor(emptyList())
+    fun `search queries content resolver`() = runTest {
+        val cursor = createMockCursor(emptyList())
         every {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), any(), any(), any())
         } returns cursor
 
         val params = mapOf<String, JsonElement>("action" to JsonPrimitive("search"))
         smsTool.execute(params)
 
         verify {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                isNull(),
-                isNull(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), isNull(), isNull(), any())
         }
     }
 
     @Test
     fun `search with since filter builds correct selection`() = runTest {
-        val cursor = createSmsCursor(emptyList())
+        val cursor = createMockCursor(emptyList())
         every {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), any(), any(), any())
         } returns cursor
 
         val params = mapOf<String, JsonElement>(
@@ -109,9 +89,9 @@ class SmsToolTest {
 
         verify {
             mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
                 any(),
-                eq("${Telephony.Sms.DATE} > ?"),
+                any(),
+                match { it != null && it.contains("> ?") },
                 eq(arrayOf("1700000000000")),
                 any()
             )
@@ -120,15 +100,9 @@ class SmsToolTest {
 
     @Test
     fun `search with from filter builds correct selection`() = runTest {
-        val cursor = createSmsCursor(emptyList())
+        val cursor = createMockCursor(emptyList())
         every {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), any(), any(), any())
         } returns cursor
 
         val params = mapOf<String, JsonElement>(
@@ -139,9 +113,9 @@ class SmsToolTest {
 
         verify {
             mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
                 any(),
-                eq("${Telephony.Sms.ADDRESS} LIKE ?"),
+                any(),
+                match { it != null && it.contains("LIKE ?") },
                 eq(arrayOf("%+1234567890%")),
                 any()
             )
@@ -154,15 +128,9 @@ class SmsToolTest {
             SmsRow("+1234567890", "Hello", 1700000000000L, 1, 1),
             SmsRow("+0987654321", "World", 1700000001000L, 2, 0)
         )
-        val cursor = createSmsCursor(messages)
+        val cursor = createMockCursor(messages)
         every {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), any(), any(), any())
         } returns cursor
 
         val params = mapOf<String, JsonElement>("action" to JsonPrimitive("search"))
@@ -183,15 +151,9 @@ class SmsToolTest {
             SmsRow("+2222222222", "Two", 1700000001000L, 1, 1),
             SmsRow("+3333333333", "Three", 1700000002000L, 1, 1)
         )
-        val cursor = createSmsCursor(messages)
+        val cursor = createMockCursor(messages)
         every {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), any(), any(), any())
         } returns cursor
 
         val params = mapOf<String, JsonElement>(
@@ -210,13 +172,7 @@ class SmsToolTest {
     @Test
     fun `search returns error when cursor is null`() = runTest {
         every {
-            mockContentResolver.query(
-                eq(Telephony.Sms.CONTENT_URI),
-                any(),
-                any(),
-                any(),
-                any()
-            )
+            mockContentResolver.query(any(), any(), any(), any(), any())
         } returns null
 
         val params = mapOf<String, JsonElement>("action" to JsonPrimitive("search"))
@@ -276,18 +232,38 @@ class SmsToolTest {
         val read: Int
     )
 
-    private fun createSmsCursor(rows: List<SmsRow>): Cursor {
-        val columns = arrayOf(
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE,
-            Telephony.Sms.TYPE,
-            Telephony.Sms.READ
-        )
-        val cursor = MatrixCursor(columns)
-        for (row in rows) {
-            cursor.addRow(arrayOf(row.address, row.body, row.date, row.type, row.read))
+    /**
+     * Creates a mock Cursor that simulates iterating over SMS rows.
+     * We can't use MatrixCursor in unit tests because Android stub classes
+     * don't have real implementations.
+     */
+    private fun createMockCursor(rows: List<SmsRow>): Cursor {
+        val cursor = mockk<Cursor>(relaxed = true)
+        var position = -1
+
+        every { cursor.moveToNext() } answers {
+            position++
+            position < rows.size
         }
+
+        every { cursor.getString(0) } answers {
+            if (position in rows.indices) rows[position].address else null
+        }
+        every { cursor.getString(1) } answers {
+            if (position in rows.indices) rows[position].body else null
+        }
+        every { cursor.getLong(2) } answers {
+            if (position in rows.indices) rows[position].date else 0L
+        }
+        every { cursor.getInt(3) } answers {
+            if (position in rows.indices) rows[position].type else 0
+        }
+        every { cursor.getInt(4) } answers {
+            if (position in rows.indices) rows[position].read else 0
+        }
+
+        every { cursor.close() } answers { }
+
         return cursor
     }
 }

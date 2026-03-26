@@ -62,7 +62,7 @@ class ScheduleTool(
             "create" -> executeCreate(params, confirmed)
             "list" -> executeList()
             "cancel" -> executeCancel(params, confirmed)
-            "run_now" -> executeRunNow(params)
+            "run_now" -> executeRunNow(params, confirmed)
             else -> ToolResult.Error("Unknown action: $action. Must be 'create', 'list', 'cancel', or 'run_now'.")
         }
     }
@@ -141,7 +141,7 @@ class ScheduleTool(
         }
     }
 
-    private fun executeRunNow(params: Map<String, JsonElement>): ToolResult {
+    private fun executeRunNow(params: Map<String, JsonElement>, confirmed: Boolean): ToolResult {
         val name = params["name"]?.jsonPrimitive?.content
             ?: return ToolResult.Error("Missing required parameter: name")
 
@@ -149,8 +149,13 @@ class ScheduleTool(
         val schedule = schedules.find { it.name == name }
             ?: return ToolResult.Error("No schedule found with name: $name")
 
-        // Re-trigger by scheduling with same params — WorkManager will run immediately
-        // if the work is already due, or we cancel and re-create.
+        if (!confirmed) {
+            return ToolResult.NeedsConfirmation(
+                preview = "Run schedule '$name' now?\nAction: ${schedule.skillAction}",
+                requestId = "schedule_run_${java.util.UUID.randomUUID()}",
+            )
+        }
+
         return try {
             scheduleEngine.cancelSchedule(name)
             scheduleEngine.scheduleRecurring(name, schedule.intervalHours, schedule.skillAction)

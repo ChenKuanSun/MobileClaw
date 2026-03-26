@@ -73,17 +73,7 @@ class WebBrowserTool(
                 "open_url" -> {
                     executeOpenUrl(params)
                 }
-                "browser_open" -> {
-                    val url = params["url"]?.jsonPrimitive?.content
-                        ?: return@withContext ToolResult.Error("Missing required parameter: url")
-                    if (!confirmed) {
-                        return@withContext ToolResult.NeedsConfirmation(
-                            preview = "Open in browser: $url",
-                            requestId = "web_browser_open_${UUID.randomUUID()}",
-                        )
-                    }
-                    executeBrowserOpen(params)
-                }
+                "browser_open" -> executeBrowserOpen(params)
                 else -> ToolResult.Error("Unknown action: $action. Must be 'search', 'open_url', or 'browser_open'.")
             }
         }

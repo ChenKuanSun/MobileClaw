@@ -1,7 +1,6 @@
 package ai.affiora.mobileclaw.ui.settings
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import ai.affiora.mobileclaw.BuildConfig
@@ -11,9 +10,15 @@ import ai.affiora.mobileclaw.connectors.ConnectorAuthType
 import ai.affiora.mobileclaw.connectors.ConnectorConfig
 import ai.affiora.mobileclaw.connectors.ConnectorStatus
 import ai.affiora.mobileclaw.tools.ClawAccessibilityService
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -32,6 +37,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -48,8 +55,10 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -76,27 +85,14 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
-private data class ProviderGroup(
-    val label: String,
-    val providers: List<AiProvider>,
-)
-
-private val providerGroups = listOf(
-    ProviderGroup("Anthropic", listOf(AiProvider.ANTHROPIC, AiProvider.ANTHROPIC_TOKEN)),
-    ProviderGroup("OpenAI", listOf(AiProvider.OPENAI, AiProvider.OPENAI_CODEX)),
-    ProviderGroup("Google", listOf(AiProvider.GOOGLE)),
-    ProviderGroup(
-        "Others",
-        listOf(
-            AiProvider.OPENROUTER,
-            AiProvider.MISTRAL,
-            AiProvider.TOGETHER,
-            AiProvider.GROQ,
-            AiProvider.XAI,
-            AiProvider.DEEPSEEK,
-            AiProvider.FIREWORKS,
-        ),
-    ),
+private val pageTitles = mapOf(
+    "main" to "Settings",
+    "provider" to "AI Provider",
+    "connectors" to "Connectors",
+    "permissions" to "Permissions",
+    "device" to "Device",
+    "data" to "Data & Storage",
+    "about" to "About",
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -111,7 +107,6 @@ fun SettingsScreen(
     val clearHistoryCompleted by viewModel.clearHistoryCompleted.collectAsState()
     val permissionMode by viewModel.permissionMode.collectAsState()
     val allowedTools by viewModel.allowedTools.collectAsState()
-
     val connectorStatuses by viewModel.connectorStatuses.collectAsState()
 
     val context = LocalContext.current
@@ -124,11 +119,8 @@ fun SettingsScreen(
         }
     }
 
+    var currentPage by rememberSaveable { mutableStateOf("main") }
     var showClearDialog by remember { mutableStateOf(false) }
-    var providerDropdownExpanded by remember { mutableStateOf(false) }
-    var modelDropdownExpanded by remember { mutableStateOf(false) }
-    var otherTokensExpanded by rememberSaveable { mutableStateOf(false) }
-    var connectorsExpanded by rememberSaveable { mutableStateOf(true) }
 
     if (clearHistoryCompleted) {
         viewModel.dismissClearHistoryConfirmation()
@@ -160,28 +152,465 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        pageTitles[currentPage] ?: "Settings",
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                navigationIcon = {
+                    if (currentPage != "main") {
+                        IconButton(onClick = { currentPage = "main" }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
+        AnimatedContent(
+            targetState = currentPage,
+            modifier = Modifier.padding(innerPadding),
+            transitionSpec = {
+                if (targetState == "main") {
+                    (slideInHorizontally { -it } + fadeIn())
+                        .togetherWith(slideOutHorizontally { it } + fadeOut())
+                } else {
+                    (slideInHorizontally { it } + fadeIn())
+                        .togetherWith(slideOutHorizontally { -it } + fadeOut())
+                }
+            },
+            label = "settings_page",
+        ) { page ->
+            when (page) {
+                "main" -> SettingsMainList(
+                    selectedProvider = selectedProvider,
+                    selectedModel = selectedModel,
+                    providerTokens = providerTokens,
+                    connectorStatuses = connectorStatuses,
+                    permissionMode = permissionMode,
+                    deviceName = deviceName,
+                    onNavigate = { currentPage = it },
+                )
+                "provider" -> ProviderPage(viewModel, selectedProvider, selectedModel, providerTokens)
+                "connectors" -> ConnectorsPage(viewModel, connectorStatuses, oauthLauncher)
+                "permissions" -> PermissionsPage(viewModel, permissionMode, allowedTools)
+                "device" -> DevicePage(viewModel, deviceName)
+                "data" -> DataPage(onClearHistory = { showClearDialog = true })
+                "about" -> AboutPage()
+                else -> SettingsMainList(
+                    selectedProvider = selectedProvider,
+                    selectedModel = selectedModel,
+                    providerTokens = providerTokens,
+                    connectorStatuses = connectorStatuses,
+                    permissionMode = permissionMode,
+                    deviceName = deviceName,
+                    onNavigate = { currentPage = it },
+                )
+            }
+        }
+    }
+}
+
+// ── Main Settings List ──────────────────────────────────────────────────
+
+@Composable
+private fun SettingsMainList(
+    selectedProvider: AiProvider,
+    selectedModel: String,
+    providerTokens: List<ProviderTokenState>,
+    connectorStatuses: List<Pair<ConnectorConfig, ConnectorStatus>>,
+    permissionMode: PermissionManager.PermissionMode,
+    deviceName: String,
+    onNavigate: (String) -> Unit,
+) {
+    val modelDisplay = selectedProvider.models
+        .firstOrNull { it.id == selectedModel }?.displayName ?: selectedModel
+    val configuredTokens = providerTokens.count { it.hasToken }
+    val connectedCount = connectorStatuses.count { it.second == ConnectorStatus.CONNECTED }
+    val totalConnectors = connectorStatuses.size
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        // ── GENERAL ──
+        SectionHeader("GENERAL")
+
+        SettingsRow(
+            icon = "\uD83E\uDD16",
+            title = "AI Provider",
+            subtitle = if (configuredTokens > 0) "$modelDisplay \u00b7 $configuredTokens key${if (configuredTokens != 1) "s" else ""}"
+            else "No keys configured",
+            onClick = { onNavigate("provider") },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingsRow(
+            icon = "\uD83D\uDD17",
+            title = "Connectors",
+            subtitle = "$connectedCount of $totalConnectors connected",
+            onClick = { onNavigate("connectors") },
+        )
+
+        // ── SECURITY ──
+        SectionHeader("SECURITY")
+
+        SettingsRow(
+            icon = "\uD83D\uDEE1\uFE0F",
+            title = "Permissions",
+            subtitle = "${permissionMode.displayName} mode",
+            onClick = { onNavigate("permissions") },
+        )
+
+        // ── SYSTEM ──
+        SectionHeader("SYSTEM")
+
+        SettingsRow(
+            icon = "\uD83D\uDCF1",
+            title = "Device",
+            subtitle = deviceName.ifBlank { "Configure device" },
+            onClick = { onNavigate("device") },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingsRow(
+            icon = "\uD83D\uDCBE",
+            title = "Data & Storage",
+            subtitle = "Clear history",
+            onClick = { onNavigate("data") },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingsRow(
+            icon = "\u2139\uFE0F",
+            title = "About",
+            subtitle = "v${BuildConfig.VERSION_NAME}",
+            onClick = { onNavigate("about") },
+        )
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun SettingsRow(
+    icon: String,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        headlineContent = {
+            Text(title, fontWeight = FontWeight.Medium)
+        },
+        supportingContent = {
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        leadingContent = {
+            Text(
+                icon,
+                style = MaterialTheme.typography.titleLarge,
+            )
+        },
+        trailingContent = {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+// ── AI Provider Page ────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProviderPage(
+    viewModel: SettingsViewModel,
+    selectedProvider: AiProvider,
+    selectedModel: String,
+    providerTokens: List<ProviderTokenState>,
+) {
+    var modelDropdownExpanded by remember { mutableStateOf(false) }
+    var showAddKeyDialog by remember { mutableStateOf(false) }
+    var showRemoveKeyDialog by remember { mutableStateOf<AiProvider?>(null) }
+
+    val configuredKeys = providerTokens.filter { it.hasToken }
+    val availableModels = viewModel.getAvailableModels()
+    val modelDisplay = selectedProvider.models
+        .firstOrNull { it.id == selectedModel }?.displayName ?: selectedModel
+
+    // Add Key dialog
+    if (showAddKeyDialog) {
+        AddKeyDialog(
+            configuredProviderIds = configuredKeys.map { it.provider.id }.toSet(),
+            onDismiss = { showAddKeyDialog = false },
+            onAdd = { providerId, token ->
+                viewModel.addKey(providerId, token)
+                showAddKeyDialog = false
+            },
+        )
+    }
+
+    // Remove Key confirmation
+    showRemoveKeyDialog?.let { provider ->
+        AlertDialog(
+            onDismissRequest = { showRemoveKeyDialog = null },
+            title = { Text("Remove Key") },
+            text = { Text("Remove the API key for ${provider.displayName}? You can re-add it later.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeKey(provider.id)
+                        showRemoveKeyDialog = null
+                    },
+                ) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveKeyDialog = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+    ) {
+        Spacer(Modifier.height(8.dp))
+
+        // ── Active model display ──
+        if (configuredKeys.isNotEmpty()) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Active",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "$modelDisplay (${selectedProvider.displayName})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        } else {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "No API keys configured",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Add a key below to get started.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // ── Your Keys ──
+        Text(
+            "YOUR KEYS",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(8.dp))
+
+        if (configuredKeys.isEmpty()) {
+            Text(
+                "No keys added yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else {
+            configuredKeys.forEach { tokenState ->
+                val maskedKey = maskToken(tokenState.token)
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            tokenState.provider.displayName,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            maskedKey,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    leadingContent = {
+                        Text(
+                            "\uD83D\uDFE2",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
+                    trailingContent = {
+                        IconButton(onClick = { showRemoveKeyDialog = tokenState.provider }) {
+                            Icon(
+                                Icons.Filled.DeleteForever,
+                                contentDescription = "Remove key",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    },
+                )
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = { showAddKeyDialog = true },
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Spacer(Modifier.height(4.dp))
+            Text("+ Add Key")
+        }
 
-            // ── AI Provider Card ────────────────────────────────────────
-            SettingsCard {
-                CardTitle("AI Provider")
-                Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(24.dp))
 
-                // Provider dropdown
+        // ── Model ──
+        if (availableModels.isNotEmpty()) {
+            Text(
+                "MODEL",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            ExposedDropdownMenuBox(
+                expanded = modelDropdownExpanded,
+                onExpandedChange = { modelDropdownExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = modelDisplay,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Model") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelDropdownExpanded) },
+                )
+                ExposedDropdownMenu(
+                    expanded = modelDropdownExpanded,
+                    onDismissRequest = { modelDropdownExpanded = false },
+                ) {
+                    // Group by provider
+                    val grouped = availableModels.groupBy { it.first }
+                    grouped.forEach { (provider, models) ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = provider.displayName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            },
+                            onClick = {},
+                            enabled = false,
+                        )
+                        models.forEach { (prov, model) ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(model.displayName)
+                                        if (model.id == selectedModel) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Icon(
+                                                Icons.Filled.Check,
+                                                contentDescription = "Selected",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.updateProvider(prov)
+                                    viewModel.updateSelectedModel(model.id)
+                                    modelDropdownExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** Mask a token showing only the last 4 characters. */
+private fun maskToken(token: String): String {
+    if (token.length <= 4) return token
+    return "${"*".repeat(minOf(token.length - 4, 12))}${token.takeLast(4)}"
+}
+
+/** Dialog for adding a new API key. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddKeyDialog(
+    configuredProviderIds: Set<String>,
+    onDismiss: () -> Unit,
+    onAdd: (providerId: String, token: String) -> Unit,
+) {
+    // Show all providers, not just unconfigured ones (user might want to replace)
+    val allProviders = AiProvider.entries.toList()
+    // Default to first unconfigured provider, or first provider
+    val defaultProvider = allProviders.firstOrNull { it.id !in configuredProviderIds } ?: allProviders.first()
+
+    var selectedProvider by remember { mutableStateOf(defaultProvider) }
+    var token by remember { mutableStateOf("") }
+    var providerDropdownExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add API Key") },
+        text = {
+            Column {
+                // Provider picker
                 ExposedDropdownMenuBox(
                     expanded = providerDropdownExpanded,
                     onExpandedChange = { providerDropdownExpanded = it },
@@ -200,410 +629,111 @@ fun SettingsScreen(
                         expanded = providerDropdownExpanded,
                         onDismissRequest = { providerDropdownExpanded = false },
                     ) {
-                        providerGroups.forEach { group ->
+                        allProviders.forEach { provider ->
+                            val alreadyConfigured = provider.id in configuredProviderIds
                             DropdownMenuItem(
                                 text = {
-                                    Text(
-                                        text = group.label,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                },
-                                onClick = {},
-                                enabled = false,
-                            )
-                            group.providers.forEach { provider ->
-                                val tokenState = providerTokens.firstOrNull { it.provider == provider }
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Spacer(Modifier.width(12.dp))
-                                            Text(provider.displayName)
-                                            if (tokenState?.hasToken == true) {
-                                                Spacer(Modifier.width(8.dp))
-                                                Icon(
-                                                    Icons.Filled.Check,
-                                                    contentDescription = "Configured",
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp),
-                                                )
-                                            }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(provider.displayName)
+                                        if (alreadyConfigured) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                "(has key)",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
                                         }
-                                    },
-                                    onClick = {
-                                        viewModel.updateProvider(provider)
-                                        providerDropdownExpanded = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // Token for active provider
-                val activeToken = providerTokens.firstOrNull { it.provider == selectedProvider }
-                TokenField(
-                    token = activeToken?.token ?: "",
-                    hint = selectedProvider.tokenHint,
-                    label = "${selectedProvider.displayName} Token",
-                    onTokenChange = { viewModel.updateTokenForProvider(selectedProvider.id, it) },
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                // Model dropdown
-                ExposedDropdownMenuBox(
-                    expanded = modelDropdownExpanded,
-                    onExpandedChange = { modelDropdownExpanded = it },
-                ) {
-                    val displayModel = selectedProvider.models
-                        .firstOrNull { it.id == selectedModel }?.displayName ?: selectedModel
-                    OutlinedTextField(
-                        value = displayModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Model") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelDropdownExpanded) },
-                    )
-                    ExposedDropdownMenu(
-                        expanded = modelDropdownExpanded,
-                        onDismissRequest = { modelDropdownExpanded = false },
-                    ) {
-                        selectedProvider.models.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model.displayName) },
+                                    }
+                                },
                                 onClick = {
-                                    viewModel.updateSelectedModel(model.id)
-                                    modelDropdownExpanded = false
+                                    selectedProvider = provider
+                                    providerDropdownExpanded = false
                                 },
                             )
                         }
                     }
                 }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ── Other Provider Tokens Card ──────────────────────────────
-            val otherTokens = providerTokens.filter { it.provider != selectedProvider }
-            val configuredCount = otherTokens.count { it.hasToken }
-            val totalCount = otherTokens.size
-
-            SettingsCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { otherTokensExpanded = !otherTokensExpanded },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        CardTitle("Other Provider Tokens")
-                        Text(
-                            text = "$configuredCount of $totalCount configured",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Icon(
-                        imageVector = if (otherTokensExpanded) Icons.Filled.KeyboardArrowUp
-                        else Icons.Filled.KeyboardArrowDown,
-                        contentDescription = if (otherTokensExpanded) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = otherTokensExpanded,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
-                ) {
-                    Column {
-                        Spacer(Modifier.height(12.dp))
-                        otherTokens.forEach { tokenState ->
-                            val label = buildString {
-                                append(tokenState.provider.displayName)
-                                if (tokenState.hasToken) append(" \u2713")
-                            }
-                            TokenField(
-                                token = tokenState.token,
-                                hint = tokenState.provider.tokenHint,
-                                label = label,
-                                onTokenChange = { viewModel.updateTokenForProvider(tokenState.provider.id, it) },
-                            )
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ── Connectors Card ─────────────────────────────────────────
-            SettingsCard {
-                val connectedCount = connectorStatuses.count { it.second == ConnectorStatus.CONNECTED }
-                val totalCount = connectorStatuses.size
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { connectorsExpanded = !connectorsExpanded },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        CardTitle("Connectors")
-                        Text(
-                            text = "$connectedCount of $totalCount connected",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Icon(
-                        imageVector = if (connectorsExpanded) Icons.Filled.KeyboardArrowUp
-                        else Icons.Filled.KeyboardArrowDown,
-                        contentDescription = if (connectorsExpanded) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = connectorsExpanded,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
-                ) {
-                    Column {
-                        Spacer(Modifier.height(12.dp))
-                        connectorStatuses.forEach { (connector, status) ->
-                            ConnectorRow(
-                                connector = connector,
-                                status = status,
-                                onConnect = { conn ->
-                                    val intent = viewModel.startOAuthFlow(conn)
-                                    if (intent != null) {
-                                        oauthLauncher.launch(intent)
-                                    }
-                                },
-                                onDisconnect = { connId ->
-                                    viewModel.disconnectConnector(connId)
-                                },
-                                onSaveToken = { connId, token ->
-                                    viewModel.saveConnectorToken(connId, token)
-                                },
-                                onSaveClientId = { connId, clientId ->
-                                    viewModel.saveConnectorClientId(connId, clientId)
-                                },
-                                getClientId = { connId ->
-                                    viewModel.getConnectorClientId(connId)
-                                },
-                            )
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ── Permissions Card ────────────────────────────────────────
-            SettingsCard {
-                CardTitle("Permissions")
-                Spacer(Modifier.height(8.dp))
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    PermissionManager.PermissionMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = permissionMode == mode,
-                            onClick = {
-                                viewModel.setPermissionMode(mode)
-                            },
-                            label = { Text(mode.displayName) },
-                            leadingIcon = if (permissionMode == mode) {
-                                {
-                                    Icon(
-                                        Icons.Filled.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
-                                    )
-                                }
-                            } else null,
-                        )
-                    }
-                }
-
-                // Bypass warning
-                AnimatedVisibility(
-                    visible = permissionMode == PermissionManager.PermissionMode.BYPASS_ALL,
-                ) {
-                    Text(
-                        text = "Warning: All tool actions (SMS, calls, file ops, app interactions) will be auto-approved without confirmation.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-
-                // Tool allowlist
-                AnimatedVisibility(
-                    visible = permissionMode == PermissionManager.PermissionMode.ALLOWLIST,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
-                ) {
-                    Column {
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = "Tool Allowlist",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        viewModel.allToolNames.forEach { toolName ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = toolName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Switch(
-                                    checked = toolName in allowedTools,
-                                    onCheckedChange = { viewModel.toggleToolAllowed(toolName, it) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ── Device Card ─────────────────────────────────────────────
-            SettingsCard {
-                CardTitle("Device")
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = deviceName,
-                    onValueChange = { viewModel.updateDeviceName(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Device name") },
-                    placeholder = { Text("My Android Phone") },
-                    singleLine = true,
-                )
 
                 Spacer(Modifier.height(12.dp))
 
-                val accessibilityEnabled = ClawAccessibilityService.instance != null
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Accessibility Service",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = if (accessibilityEnabled) "Enabled" else "Disabled",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (accessibilityEnabled) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
-                        )
-                    }
-                    if (!accessibilityEnabled) {
-                        OutlinedButton(
-                            onClick = {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                )
-                            },
-                        ) {
-                            Text("Enable")
-                        }
-                    }
-                }
-            }
+                // Hint text
+                Text(
+                    text = selectedProvider.tokenHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
-            Spacer(Modifier.height(12.dp))
-
-            // ── Data Card ───────────────────────────────────────────────
-            SettingsCard {
-                CardTitle("Data")
                 Spacer(Modifier.height(8.dp))
 
-                Button(
-                    onClick = { showClearDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ),
-                ) {
-                    Icon(imageVector = Icons.Filled.DeleteForever, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Clear Conversation History")
-                }
+                // Token field
+                TokenField(
+                    token = token,
+                    hint = "Paste token here",
+                    label = "Token",
+                    onTokenChange = { token = it },
+                )
             }
-
-            Spacer(Modifier.height(24.dp))
-
-            // ── Footer ──────────────────────────────────────────────────
-            Text(
-                text = "v${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-            Text(
-                text = "MobileClaw by Affiora",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 2.dp),
-            )
-
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
-// ── Reusable components ─────────────────────────────────────────────────
-
-@Composable
-private fun SettingsCard(
-    content: @Composable () -> Unit,
-) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            content()
-        }
-    }
-}
-
-@Composable
-private fun CardTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(selectedProvider.id, token) },
+                enabled = token.isNotBlank(),
+            ) {
+                Text("Add Key")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
     )
+}
+
+
+// ── Connectors Page ─────────────────────────────────────────────────────
+
+@Composable
+private fun ConnectorsPage(
+    viewModel: SettingsViewModel,
+    connectorStatuses: List<Pair<ConnectorConfig, ConnectorStatus>>,
+    oauthLauncher: androidx.activity.result.ActivityResultLauncher<Intent>,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.height(8.dp))
+
+        connectorStatuses.forEach { (connector, status) ->
+            ConnectorRow(
+                connector = connector,
+                status = status,
+                onConnect = { conn ->
+                    val intent = viewModel.startOAuthFlow(conn)
+                    if (intent != null) {
+                        oauthLauncher.launch(intent)
+                    }
+                },
+                onDisconnect = { connId ->
+                    viewModel.disconnectConnector(connId)
+                },
+                onSaveToken = { connId, token ->
+                    viewModel.saveConnectorToken(connId, token)
+                },
+                onSaveClientId = { connId, clientId ->
+                    viewModel.saveConnectorClientId(connId, clientId)
+                },
+                getClientId = { connId ->
+                    viewModel.getConnectorClientId(connId)
+                },
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 @Composable
@@ -620,66 +750,57 @@ private fun ConnectorRow(
     var clientId by rememberSaveable(connector.id) { mutableStateOf(getClientId(connector.id)) }
     var expanded by rememberSaveable(connector.id) { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded },
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = connector.icon,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(end = 8.dp),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = connector.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = connector.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            when (status) {
-                ConnectorStatus.CONNECTED -> {
+    val statusText = when (status) {
+        ConnectorStatus.CONNECTED -> "Connected"
+        ConnectorStatus.EXPIRED -> "Expired"
+        ConnectorStatus.NOT_CONNECTED -> "Not connected"
+    }
+    val statusColor = when (status) {
+        ConnectorStatus.CONNECTED -> MaterialTheme.colorScheme.primary
+        ConnectorStatus.EXPIRED -> MaterialTheme.colorScheme.error
+        ConnectorStatus.NOT_CONNECTED -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Column {
+        ListItem(
+            headlineContent = {
+                Text(connector.name, fontWeight = FontWeight.Medium)
+            },
+            supportingContent = {
+                Column {
                     Text(
-                        text = "Connected",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 4.dp),
-                    )
-                }
-                ConnectorStatus.EXPIRED -> {
-                    Text(
-                        text = "Expired",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(end = 4.dp),
-                    )
-                }
-                ConnectorStatus.NOT_CONNECTED -> {
-                    Text(
-                        text = "Not Connected",
-                        style = MaterialTheme.typography.labelSmall,
+                        connector.description,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                    Text(
+                        statusText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
-            }
-        }
+            },
+            leadingContent = {
+                Text(connector.icon, style = MaterialTheme.typography.titleLarge)
+            },
+            trailingContent = {
+                Icon(
+                    if (expanded) Icons.Filled.KeyboardArrowUp
+                    else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            modifier = Modifier.clickable { expanded = !expanded },
+        )
 
         AnimatedVisibility(
             visible = expanded,
             enter = expandVertically(),
             exit = shrinkVertically(),
         ) {
-            Column(modifier = Modifier.padding(start = 32.dp, top = 8.dp)) {
+            Column(modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 12.dp)) {
                 when {
                     status == ConnectorStatus.CONNECTED -> {
                         OutlinedButton(
@@ -692,7 +813,6 @@ private fun ConnectorRow(
                         }
                     }
                     connector.authType == ConnectorAuthType.OAUTH2_PKCE -> {
-                        // Client ID field
                         OutlinedTextField(
                             value = clientId,
                             onValueChange = {
@@ -747,6 +867,307 @@ private fun ConnectorRow(
         }
     }
 }
+
+// ── Permissions Page ────────────────────────────────────────────────────
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PermissionsPage(
+    viewModel: SettingsViewModel,
+    permissionMode: PermissionManager.PermissionMode,
+    allowedTools: Set<String>,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+    ) {
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            "Permission Mode",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(8.dp))
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PermissionManager.PermissionMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = permissionMode == mode,
+                    onClick = { viewModel.setPermissionMode(mode) },
+                    label = { Text(mode.displayName) },
+                    leadingIcon = if (permissionMode == mode) {
+                        {
+                            Icon(
+                                Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize),
+                            )
+                        }
+                    } else null,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Mode description
+        val modeDescription = when (permissionMode) {
+            PermissionManager.PermissionMode.DEFAULT -> "You will be asked to confirm dangerous actions like sending SMS, making calls, or modifying files."
+            PermissionManager.PermissionMode.ALLOWLIST -> "Only selected tools below will be auto-approved. All others require confirmation."
+            PermissionManager.PermissionMode.BYPASS_ALL -> "All tool actions will be auto-approved without confirmation."
+        }
+        Text(
+            text = modeDescription,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (permissionMode == PermissionManager.PermissionMode.BYPASS_ALL)
+                MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // Tool allowlist
+        AnimatedVisibility(
+            visible = permissionMode == PermissionManager.PermissionMode.ALLOWLIST,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "TOOL ALLOWLIST",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+
+                viewModel.allToolNames.forEach { toolName ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = toolName.replace("_", " ")
+                                .replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(
+                            checked = toolName in allowedTools,
+                            onCheckedChange = { viewModel.toggleToolAllowed(toolName, it) },
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ── Device Page ─────────────────────────────────────────────────────────
+
+@Composable
+private fun DevicePage(
+    viewModel: SettingsViewModel,
+    deviceName: String,
+) {
+    val context = LocalContext.current
+    val accessibilityEnabled = ClawAccessibilityService.instance != null
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+    ) {
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = deviceName,
+            onValueChange = { viewModel.updateDeviceName(it) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Device name") },
+            placeholder = { Text("My Android Phone") },
+            singleLine = true,
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Accessibility Service",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (accessibilityEnabled) "Enabled — MobileClaw can control your device"
+                        else "Disabled — required for UI automation",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (accessibilityEnabled) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (!accessibilityEnabled) {
+                    Spacer(Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                },
+                            )
+                        },
+                    ) {
+                        Text("Enable")
+                    }
+                } else {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = "Enabled",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ── Data & Storage Page ─────────────────────────────────────────────────
+
+@Composable
+private fun DataPage(
+    onClearHistory: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+    ) {
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            "STORAGE",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Conversation History",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Remove all saved conversations and messages.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onClearHistory,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Icon(imageVector = Icons.Filled.DeleteForever, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Clear Conversation History")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ── About Page ──────────────────────────────────────────────────────────
+
+@Composable
+private fun AboutPage() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(48.dp))
+
+        Text(
+            "\uD83E\uDD16",
+            style = MaterialTheme.typography.displayLarge,
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            "MobileClaw",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Text(
+            "by Affiora",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            "v${BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Android AI Agent",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "MobileClaw is an AI-powered agent that can control your Android device, automate tasks, and integrate with your favorite services.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ── Reusable components ─────────────────────────────────────────────────
 
 @Composable
 private fun TokenField(

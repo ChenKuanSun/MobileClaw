@@ -3,6 +3,7 @@ package ai.affiora.mobileclaw.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Intent
+import ai.affiora.mobileclaw.agent.AiModel
 import ai.affiora.mobileclaw.agent.AiProvider
 import ai.affiora.mobileclaw.agent.PermissionManager
 import ai.affiora.mobileclaw.connectors.ConnectorConfig
@@ -75,6 +76,44 @@ class SettingsViewModel @Inject constructor(
             userPreferences.setTokenForProvider(providerId, token)
             _providerTokens.value = loadProviderTokens()
         }
+    }
+
+    fun addKey(providerId: String, token: String) {
+        viewModelScope.launch {
+            userPreferences.setTokenForProvider(providerId, token)
+            // Auto-select this provider if current provider has no key
+            val currentProvider = userPreferences.selectedProvider.first()
+            if (userPreferences.getTokenForProvider(currentProvider).isBlank()) {
+                val provider = AiProvider.fromId(providerId)
+                userPreferences.setSelectedProvider(provider.id)
+                userPreferences.setSelectedModel(provider.models.first().id)
+            }
+            _providerTokens.value = loadProviderTokens()
+        }
+    }
+
+    fun removeKey(providerId: String) {
+        viewModelScope.launch {
+            userPreferences.setTokenForProvider(providerId, "")
+            // If removing the active provider's key, switch to first provider with a key
+            val currentProvider = userPreferences.selectedProvider.first()
+            if (currentProvider == providerId) {
+                val updated = loadProviderTokens()
+                val fallback = updated.firstOrNull { it.hasToken }
+                if (fallback != null) {
+                    userPreferences.setSelectedProvider(fallback.provider.id)
+                    userPreferences.setSelectedModel(fallback.provider.models.first().id)
+                }
+            }
+            _providerTokens.value = loadProviderTokens()
+        }
+    }
+
+    /** Models only from providers with configured keys. */
+    fun getAvailableModels(): List<Pair<AiProvider, AiModel>> {
+        return _providerTokens.value
+            .filter { it.hasToken }
+            .flatMap { state -> state.provider.models.map { state.provider to it } }
     }
 
     fun updateProvider(provider: AiProvider) {

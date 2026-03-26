@@ -154,6 +154,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.truth)
+    testImplementation(libs.ktor.client.mock)
 
     // Android Testing
     androidTestImplementation(platform(libs.compose.bom))

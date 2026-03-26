@@ -601,7 +601,7 @@ class ChatViewModel @Inject constructor(
 
                 // Process queued messages
                 if (messageQueue.isNotEmpty()) {
-                    val next = messageQueue.removeFirst()
+                    val next = messageQueue.removeAt(0)
                     val attachUri = pendingAttachmentUri
                     val attachMime = pendingAttachmentMimeType
                     if (attachUri != null && attachMime != null) {
@@ -664,7 +664,7 @@ class ChatViewModel @Inject constructor(
                 streamingText.clear()
 
                 if (messageQueue.isNotEmpty()) {
-                    val next = messageQueue.removeFirst()
+                    val next = messageQueue.removeAt(0)
                     sendMessage(next)
                 }
             }

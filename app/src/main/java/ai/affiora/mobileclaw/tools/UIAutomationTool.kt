@@ -145,17 +145,7 @@ class UIAutomationTool(
                 delay(seconds * 1000L)
                 ToolResult.Success("Waited $seconds seconds.")
             }
-            "launch_and_wait" -> {
-                val packageName = params["package_name"]?.jsonPrimitive?.content
-                    ?: return ToolResult.Error("Missing required parameter: package_name")
-                if (!confirmed) {
-                    return ToolResult.NeedsConfirmation(
-                        preview = "Open $packageName?",
-                        requestId = "ui_launch_${UUID.randomUUID()}",
-                    )
-                }
-                executeLaunchAndWait(params, service)
-            }
+            "launch_and_wait" -> executeLaunchAndWait(params, service)
             else -> ToolResult.Error("Unknown action: $action")
         }
     }

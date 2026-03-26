@@ -29,6 +29,7 @@ class SkillsManagerTest {
         userPreferences = mockk(relaxed = true)
 
         every { context.assets } returns assetManager
+        every { context.filesDir } returns java.io.File(System.getProperty("java.io.tmpdir"), "mobileclaw-test-skills")
         every { userPreferences.activeSkillIds } returns flowOf(emptySet())
 
         skillsManager = SkillsManager(context, userPreferences)

@@ -8,12 +8,12 @@ import ai.affiora.mobileclaw.data.model.ContentBlock
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import ai.affiora.mobileclaw.tools.AndroidTool
 import ai.affiora.mobileclaw.tools.ToolResult
-import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonElement
@@ -93,22 +93,28 @@ class AgentRuntimeTest {
         every { it.parameters } returns JsonObject(emptyMap())
     }
 
+    /** Collect all events, filtering out Raw* turn events for cleaner assertions. */
+    private inline fun <reified T : AgentEvent> List<AgentEvent>.typed(): List<T> =
+        filterIsInstance<T>()
+
+    private fun List<AgentEvent>.withoutRaw(): List<AgentEvent> =
+        filter { it !is AgentEvent.RawAssistantTurn && it !is AgentEvent.RawToolResultTurn }
+
     // -----------------------------------------------------------------------
     // Simple text response
     // -----------------------------------------------------------------------
 
     @Test
     fun `simple text response emits single Text event then completes`() = runTest {
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } returns
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns
             textResponse(text = "Hello, world!")
 
         val rt = buildRuntime()
-        rt.run("Hi", emptyHistory, systemPrompt).test {
-            val event = awaitItem()
-            assertThat(event).isInstanceOf(AgentEvent.Text::class.java)
-            assertThat((event as AgentEvent.Text).text).isEqualTo("Hello, world!")
-            awaitComplete()
-        }
+        val events = rt.run("Hi", emptyHistory, systemPrompt).toList().withoutRaw()
+
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).isInstanceOf(AgentEvent.Text::class.java)
+        assertThat((events[0] as AgentEvent.Text).text).isEqualTo("Hello, world!")
     }
 
     // -----------------------------------------------------------------------
@@ -119,7 +125,7 @@ class AgentRuntimeTest {
     fun `tool use emits ToolCalling and ToolResultEvent then continues loop`() = runTest {
         val toolInput = JsonObject(mapOf("query" to JsonPrimitive("weather")))
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
             toolUseResponse(toolName = "search", input = toolInput),
             textResponse(text = "The weather is sunny."),
         )
@@ -128,28 +134,22 @@ class AgentRuntimeTest {
         coEvery { tool.execute(any()) } returns ToolResult.Success("Sunny, 25C")
 
         val rt = buildRuntime(mapOf("search" to tool))
-        rt.run("What's the weather?", emptyHistory, systemPrompt).test {
-            // 1) ToolCalling
-            val calling = awaitItem()
-            assertThat(calling).isInstanceOf(AgentEvent.ToolCalling::class.java)
-            assertThat((calling as AgentEvent.ToolCalling).toolName).isEqualTo("search")
-            assertThat(calling.input).containsEntry("query", JsonPrimitive("weather"))
+        val events = rt.run("What's the weather?", emptyHistory, systemPrompt).toList().withoutRaw()
 
-            // 2) ToolResultEvent with Success
-            val result = awaitItem()
-            assertThat(result).isInstanceOf(AgentEvent.ToolResultEvent::class.java)
-            val tre = result as AgentEvent.ToolResultEvent
-            assertThat(tre.toolName).isEqualTo("search")
-            assertThat(tre.result).isInstanceOf(ToolResult.Success::class.java)
-            assertThat((tre.result as ToolResult.Success).data).isEqualTo("Sunny, 25C")
+        val calling = events.filterIsInstance<AgentEvent.ToolCalling>()
+        assertThat(calling).hasSize(1)
+        assertThat(calling[0].toolName).isEqualTo("search")
+        assertThat(calling[0].input).containsEntry("query", JsonPrimitive("weather"))
 
-            // 3) Text from second API call
-            val text = awaitItem()
-            assertThat(text).isInstanceOf(AgentEvent.Text::class.java)
-            assertThat((text as AgentEvent.Text).text).isEqualTo("The weather is sunny.")
+        val results = events.filterIsInstance<AgentEvent.ToolResultEvent>()
+        assertThat(results).hasSize(1)
+        assertThat(results[0].toolName).isEqualTo("search")
+        assertThat(results[0].result).isInstanceOf(ToolResult.Success::class.java)
+        assertThat((results[0].result as ToolResult.Success).data).isEqualTo("Sunny, 25C")
 
-            awaitComplete()
-        }
+        val texts = events.filterIsInstance<AgentEvent.Text>()
+        assertThat(texts).hasSize(1)
+        assertThat(texts[0].text).isEqualTo("The weather is sunny.")
     }
 
     // -----------------------------------------------------------------------
@@ -161,7 +161,7 @@ class AgentRuntimeTest {
         val toolInput = JsonObject(mapOf("to" to JsonPrimitive("+1234567890")))
         val requestId = "confirm_001"
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
             toolUseResponse(toolName = "sms", input = toolInput),
             textResponse(text = "Message sent."),
         )
@@ -176,38 +176,37 @@ class AgentRuntimeTest {
             ToolResult.Success("SMS sent successfully")
 
         val rt = buildRuntime(mapOf("sms" to tool))
-        rt.run("Send a text", emptyHistory, systemPrompt).test {
-            // 1) ToolCalling
-            val calling = awaitItem()
-            assertThat(calling).isInstanceOf(AgentEvent.ToolCalling::class.java)
-            assertThat((calling as AgentEvent.ToolCalling).toolName).isEqualTo("sms")
 
-            // 2) NeedsConfirmation
-            val confirmation = awaitItem()
-            assertThat(confirmation).isInstanceOf(AgentEvent.NeedsConfirmation::class.java)
-            val nc = confirmation as AgentEvent.NeedsConfirmation
-            assertThat(nc.requestId).isEqualTo(requestId)
-            assertThat(nc.preview).isEqualTo("Send SMS to +1234567890")
-            assertThat(nc.toolName).isEqualTo("sms")
-
-            // Approve from another coroutine
-            launch { rt.confirmAction(requestId, true) }
-
-            // 3) ToolResultEvent with Success after confirmed re-execution
-            val result = awaitItem()
-            assertThat(result).isInstanceOf(AgentEvent.ToolResultEvent::class.java)
-            val tre = result as AgentEvent.ToolResultEvent
-            assertThat(tre.toolName).isEqualTo("sms")
-            assertThat(tre.result).isInstanceOf(ToolResult.Success::class.java)
-            assertThat((tre.result as ToolResult.Success).data).isEqualTo("SMS sent successfully")
-
-            // 4) Text from second API call
-            val text = awaitItem()
-            assertThat(text).isInstanceOf(AgentEvent.Text::class.java)
-            assertThat((text as AgentEvent.Text).text).isEqualTo("Message sent.")
-
-            awaitComplete()
+        val events = mutableListOf<AgentEvent>()
+        val job = launch {
+            rt.run("Send a text", emptyHistory, systemPrompt).collect { event ->
+                events.add(event)
+                if (event is AgentEvent.NeedsConfirmation) {
+                    launch { rt.confirmAction(requestId, true) }
+                }
+            }
         }
+        job.join()
+
+        val filtered = events.withoutRaw()
+        val callings = filtered.filterIsInstance<AgentEvent.ToolCalling>()
+        assertThat(callings).hasSize(1)
+        assertThat(callings[0].toolName).isEqualTo("sms")
+
+        val confirmations = filtered.filterIsInstance<AgentEvent.NeedsConfirmation>()
+        assertThat(confirmations).hasSize(1)
+        assertThat(confirmations[0].requestId).isEqualTo(requestId)
+        assertThat(confirmations[0].preview).isEqualTo("Send SMS to +1234567890")
+
+        val results = filtered.filterIsInstance<AgentEvent.ToolResultEvent>()
+        assertThat(results).hasSize(1)
+        assertThat(results[0].toolName).isEqualTo("sms")
+        assertThat(results[0].result).isInstanceOf(ToolResult.Success::class.java)
+        assertThat((results[0].result as ToolResult.Success).data).isEqualTo("SMS sent successfully")
+
+        val texts = filtered.filterIsInstance<AgentEvent.Text>()
+        assertThat(texts).hasSize(1)
+        assertThat(texts[0].text).isEqualTo("Message sent.")
     }
 
     // -----------------------------------------------------------------------
@@ -219,7 +218,7 @@ class AgentRuntimeTest {
         val toolInput = JsonObject(mapOf("number" to JsonPrimitive("+1234567890")))
         val requestId = "confirm_002"
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
             toolUseResponse(toolName = "call", input = toolInput),
             textResponse(text = "Okay, I won't make the call."),
         )
@@ -231,35 +230,36 @@ class AgentRuntimeTest {
         )
 
         val rt = buildRuntime(mapOf("call" to tool))
-        rt.run("Call this number", emptyHistory, systemPrompt).test {
-            // 1) ToolCalling
-            val calling = awaitItem()
-            assertThat(calling).isInstanceOf(AgentEvent.ToolCalling::class.java)
-            assertThat((calling as AgentEvent.ToolCalling).toolName).isEqualTo("call")
 
-            // 2) NeedsConfirmation
-            val confirmation = awaitItem()
-            assertThat(confirmation).isInstanceOf(AgentEvent.NeedsConfirmation::class.java)
-            assertThat((confirmation as AgentEvent.NeedsConfirmation).requestId).isEqualTo(requestId)
-
-            // Deny from another coroutine
-            launch { rt.confirmAction(requestId, false) }
-
-            // 3) ToolResultEvent with Error containing cancellation message
-            val result = awaitItem()
-            assertThat(result).isInstanceOf(AgentEvent.ToolResultEvent::class.java)
-            val tre = result as AgentEvent.ToolResultEvent
-            assertThat(tre.toolName).isEqualTo("call")
-            assertThat(tre.result).isInstanceOf(ToolResult.Error::class.java)
-            assertThat((tre.result as ToolResult.Error).message).isEqualTo("Action cancelled by user")
-
-            // 4) Text from second API call (Claude responds to cancellation)
-            val text = awaitItem()
-            assertThat(text).isInstanceOf(AgentEvent.Text::class.java)
-            assertThat((text as AgentEvent.Text).text).isEqualTo("Okay, I won't make the call.")
-
-            awaitComplete()
+        val events = mutableListOf<AgentEvent>()
+        val job = launch {
+            rt.run("Call this number", emptyHistory, systemPrompt).collect { event ->
+                events.add(event)
+                if (event is AgentEvent.NeedsConfirmation) {
+                    launch { rt.confirmAction(requestId, false) }
+                }
+            }
         }
+        job.join()
+
+        val filtered = events.withoutRaw()
+        val callings = filtered.filterIsInstance<AgentEvent.ToolCalling>()
+        assertThat(callings).hasSize(1)
+        assertThat(callings[0].toolName).isEqualTo("call")
+
+        val confirmations = filtered.filterIsInstance<AgentEvent.NeedsConfirmation>()
+        assertThat(confirmations).hasSize(1)
+        assertThat(confirmations[0].requestId).isEqualTo(requestId)
+
+        val results = filtered.filterIsInstance<AgentEvent.ToolResultEvent>()
+        assertThat(results).hasSize(1)
+        assertThat(results[0].toolName).isEqualTo("call")
+        assertThat(results[0].result).isInstanceOf(ToolResult.Error::class.java)
+        assertThat((results[0].result as ToolResult.Error).message).isEqualTo("Action cancelled by user")
+
+        val texts = filtered.filterIsInstance<AgentEvent.Text>()
+        assertThat(texts).hasSize(1)
+        assertThat(texts[0].text).isEqualTo("Okay, I won't make the call.")
     }
 
     // -----------------------------------------------------------------------
@@ -267,11 +267,11 @@ class AgentRuntimeTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `max iterations safety limit emits Error after 10 loops`() = runTest {
+    fun `max iterations safety limit emits Error after MAX_ITERATIONS loops`() = runTest {
         val toolInput = JsonObject(mapOf("q" to JsonPrimitive("loop")))
 
         // Every API call returns tool_use so the loop never breaks naturally
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } returns
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns
             toolUseResponse(
                 id = "msg_loop",
                 toolUseId = "toolu_loop",
@@ -284,28 +284,18 @@ class AgentRuntimeTest {
         coEvery { tool.execute(any()) } returns ToolResult.Success("echoed")
 
         val rt = buildRuntime(mapOf("echo" to tool))
-        rt.run("Loop forever", emptyHistory, systemPrompt).test {
-            // 10 iterations x (ToolCalling + ToolResultEvent) = 20 events
-            repeat(10) { i ->
-                val calling = awaitItem()
-                assertThat(calling).isInstanceOf(AgentEvent.ToolCalling::class.java)
-                assertThat((calling as AgentEvent.ToolCalling).toolName).isEqualTo("echo")
+        val events = rt.run("Loop forever", emptyHistory, systemPrompt).toList().withoutRaw()
 
-                val result = awaitItem()
-                assertThat(result).isInstanceOf(AgentEvent.ToolResultEvent::class.java)
-                assertThat((result as AgentEvent.ToolResultEvent).result)
-                    .isInstanceOf(ToolResult.Success::class.java)
-            }
+        val callings = events.filterIsInstance<AgentEvent.ToolCalling>()
+        assertThat(callings).hasSize(200)
 
-            // Final: max iterations error
-            val error = awaitItem()
-            assertThat(error).isInstanceOf(AgentEvent.Error::class.java)
-            assertThat((error as AgentEvent.Error).message)
-                .contains("maximum iteration limit")
-            assertThat(error.message).contains("10")
+        val results = events.filterIsInstance<AgentEvent.ToolResultEvent>()
+        assertThat(results).hasSize(200)
 
-            awaitComplete()
-        }
+        val errors = events.filterIsInstance<AgentEvent.Error>()
+        assertThat(errors).hasSize(1)
+        assertThat(errors[0].message).contains("maximum iteration limit")
+        assertThat(errors[0].message).contains("200")
     }
 
     // -----------------------------------------------------------------------
@@ -315,33 +305,31 @@ class AgentRuntimeTest {
     @Test
     fun `API error emits Error event with status code and body`() = runTest {
         val errorBody = """{"error":{"type":"rate_limit_error","message":"Too many requests"}}"""
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } throws
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } throws
             ClaudeApiException(429, errorBody)
 
         val rt = buildRuntime()
-        rt.run("Hello", emptyHistory, systemPrompt).test {
-            val event = awaitItem()
-            assertThat(event).isInstanceOf(AgentEvent.Error::class.java)
-            val error = event as AgentEvent.Error
-            assertThat(error.message).contains("429")
-            assertThat(error.message).contains("rate_limit_error")
-            awaitComplete()
-        }
+        val events = rt.run("Hello", emptyHistory, systemPrompt).toList()
+
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).isInstanceOf(AgentEvent.Error::class.java)
+        val error = events[0] as AgentEvent.Error
+        assertThat(error.message).contains("429")
+        assertThat(error.message).contains("rate_limit_error")
     }
 
     @Test
     fun `unexpected exception emits Error event`() = runTest {
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } throws
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } throws
             RuntimeException("Connection refused")
 
         val rt = buildRuntime()
-        rt.run("Hello", emptyHistory, systemPrompt).test {
-            val event = awaitItem()
-            assertThat(event).isInstanceOf(AgentEvent.Error::class.java)
-            val error = event as AgentEvent.Error
-            assertThat(error.message).contains("Connection refused")
-            awaitComplete()
-        }
+        val events = rt.run("Hello", emptyHistory, systemPrompt).toList()
+
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).isInstanceOf(AgentEvent.Error::class.java)
+        val error = events[0] as AgentEvent.Error
+        assertThat(error.message).contains("Connection refused")
     }
 
     // -----------------------------------------------------------------------
@@ -352,7 +340,7 @@ class AgentRuntimeTest {
     fun `unknown tool emits ToolCalling then error ToolResultEvent`() = runTest {
         val toolInput = JsonObject(mapOf("x" to JsonPrimitive("y")))
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), anyOrNull(), anyOrNull()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
             toolUseResponse(
                 toolName = "nonexistent_tool",
                 toolUseId = "toolu_unknown",
@@ -363,27 +351,37 @@ class AgentRuntimeTest {
 
         // Empty registry — no tools registered
         val rt = buildRuntime()
-        rt.run("Do something", emptyHistory, systemPrompt).test {
-            // 1) ToolCalling still emitted for the unknown tool
-            val calling = awaitItem()
-            assertThat(calling).isInstanceOf(AgentEvent.ToolCalling::class.java)
-            assertThat((calling as AgentEvent.ToolCalling).toolName).isEqualTo("nonexistent_tool")
+        val events = rt.run("Do something", emptyHistory, systemPrompt).toList().withoutRaw()
 
-            // 2) ToolResultEvent with Error about unknown tool
-            val result = awaitItem()
-            assertThat(result).isInstanceOf(AgentEvent.ToolResultEvent::class.java)
-            val tre = result as AgentEvent.ToolResultEvent
-            assertThat(tre.toolName).isEqualTo("nonexistent_tool")
-            assertThat(tre.result).isInstanceOf(ToolResult.Error::class.java)
-            assertThat((tre.result as ToolResult.Error).message).contains("Unknown tool")
-            assertThat((tre.result as ToolResult.Error).message).contains("nonexistent_tool")
+        val callings = events.filterIsInstance<AgentEvent.ToolCalling>()
+        assertThat(callings).hasSize(1)
+        assertThat(callings[0].toolName).isEqualTo("nonexistent_tool")
 
-            // 3) Text from second API call
-            val text = awaitItem()
-            assertThat(text).isInstanceOf(AgentEvent.Text::class.java)
-            assertThat((text as AgentEvent.Text).text).isEqualTo("Sorry, I couldn't do that.")
+        val results = events.filterIsInstance<AgentEvent.ToolResultEvent>()
+        assertThat(results).hasSize(1)
+        assertThat(results[0].toolName).isEqualTo("nonexistent_tool")
+        assertThat(results[0].result).isInstanceOf(ToolResult.Error::class.java)
+        assertThat((results[0].result as ToolResult.Error).message).contains("Unknown tool")
+        assertThat((results[0].result as ToolResult.Error).message).contains("nonexistent_tool")
 
-            awaitComplete()
-        }
+        val texts = events.filterIsInstance<AgentEvent.Text>()
+        assertThat(texts).hasSize(1)
+        assertThat(texts[0].text).isEqualTo("Sorry, I couldn't do that.")
+    }
+
+    // -----------------------------------------------------------------------
+    // RawAssistantTurn is emitted after each API response
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `RawAssistantTurn is emitted after processing API response`() = runTest {
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns
+            textResponse(text = "Hi!")
+
+        val rt = buildRuntime()
+        val events = rt.run("Hello", emptyHistory, systemPrompt).toList()
+
+        val rawTurns = events.filterIsInstance<AgentEvent.RawAssistantTurn>()
+        assertThat(rawTurns).hasSize(1)
     }
 }

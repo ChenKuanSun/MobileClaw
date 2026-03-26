@@ -322,8 +322,12 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `tool result events are stored with TOOL_RESULT role`() = runTest {
+    fun `tool calling and result events create assistant host message with tool markers`() = runTest {
         val agentFlow = flow<AgentEvent> {
+            emit(AgentEvent.ToolCalling(
+                toolName = "sms_reader",
+                input = mapOf("action" to kotlinx.serialization.json.JsonPrimitive("search")),
+            ))
             emit(AgentEvent.ToolResultEvent(
                 toolName = "sms_reader",
                 result = ToolResult.Success(data = "3 unread messages"),
@@ -340,9 +344,9 @@ class ChatViewModelTest {
         val capturedMessages = mutableListOf<ChatMessageEntity>()
         coVerify(atLeast = 2) { chatMessageDao.insert(capture(capturedMessages)) }
 
-        val toolMessage = capturedMessages.first { it.role == MessageRole.TOOL_RESULT }
-        assertThat(toolMessage.toolName).isEqualTo("sms_reader")
-        assertThat(toolMessage.content).isEqualTo("3 unread messages")
+        // ToolCalling creates an assistant host message with tool markers
+        val assistantMessage = capturedMessages.first { it.role == MessageRole.ASSISTANT }
+        assertThat(assistantMessage.content).contains("sms_reader")
     }
 
     @Test
