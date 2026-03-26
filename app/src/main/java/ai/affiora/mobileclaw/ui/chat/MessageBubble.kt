@@ -39,7 +39,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Icon
@@ -251,11 +256,6 @@ private fun StandardBubble(
 private fun ToolActivityRow(activity: ToolActivity) {
     var expanded by remember { mutableStateOf(false) }
 
-    val statusIcon = when {
-        activity.isPending -> "\u23F3" // hourglass
-        activity.isError -> "\u2717"   // cross mark
-        else -> "\u2713"               // check mark
-    }
     val statusColor = when {
         activity.isPending -> MaterialTheme.colorScheme.tertiary
         activity.isError -> MaterialTheme.colorScheme.error
@@ -278,10 +278,11 @@ private fun ToolActivityRow(activity: ToolActivity) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             // Expand/collapse arrow
-            Text(
-                text = if (expanded) "\u25BE" else "\u25B8",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            Icon(
+                imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             )
 
             // Pulsing dot for pending state
@@ -315,11 +316,20 @@ private fun ToolActivityRow(activity: ToolActivity) {
             Spacer(modifier = Modifier.weight(1f))
 
             // Status icon
-            Text(
-                text = statusIcon,
-                style = MaterialTheme.typography.labelSmall,
-                color = statusColor,
-            )
+            if (activity.isPending) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    strokeWidth = 1.5.dp,
+                    color = statusColor,
+                )
+            } else {
+                Icon(
+                    imageVector = if (activity.isError) Icons.Filled.Close else Icons.Filled.Check,
+                    contentDescription = if (activity.isError) "Error" else "Success",
+                    modifier = Modifier.size(14.dp),
+                    tint = statusColor,
+                )
+            }
         }
 
         // Expanded details

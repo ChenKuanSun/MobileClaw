@@ -1,5 +1,6 @@
 package ai.affiora.mobileclaw.ui.chat
 
+import ai.affiora.mobileclaw.R
 import ai.affiora.mobileclaw.data.model.ActionType
 import ai.affiora.mobileclaw.data.model.MessageAction
 import ai.affiora.mobileclaw.data.model.MessageRole
@@ -103,6 +104,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -453,10 +455,10 @@ private fun StatusBar(
     }
 
     val statusText = when (status) {
-        ConnectionStatus.CONNECTED -> "Connected"
-        ConnectionStatus.PROCESSING -> "Processing..."
-        ConnectionStatus.THINKING -> "Thinking..."
-        ConnectionStatus.ERROR -> "Error"
+        ConnectionStatus.CONNECTED -> stringResource(R.string.chat_status_connected)
+        ConnectionStatus.PROCESSING -> stringResource(R.string.chat_status_processing)
+        ConnectionStatus.THINKING -> stringResource(R.string.chat_status_thinking)
+        ConnectionStatus.ERROR -> stringResource(R.string.chat_status_error)
     }
 
     Row(
@@ -543,7 +545,7 @@ private fun TypingIndicator(modifier: Modifier = Modifier) {
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Responding...",
+            text = stringResource(R.string.chat_responding),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
         )
@@ -575,7 +577,7 @@ private fun ThinkingIndicator(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.tertiary.copy(alpha = alpha),
         )
         Text(
-            text = "Thinking...",
+            text = stringResource(R.string.chat_status_thinking),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.tertiary.copy(alpha = alpha),
@@ -664,18 +666,18 @@ private fun SessionDrawer(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Conversations",
+                    text = stringResource(R.string.chat_conversations),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
                 FilledTonalButton(onClick = onNewChat) {
                     Icon(
                         imageVector = Icons.Filled.Add,
-                        contentDescription = "New chat",
+                        contentDescription = stringResource(R.string.chat_new_chat),
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("New Chat")
+                    Text(stringResource(R.string.chat_new_chat))
                 }
             }
 
@@ -688,7 +690,7 @@ private fun SessionDrawer(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "No conversations yet",
+                        text = stringResource(R.string.chat_no_conversations),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     )
@@ -795,7 +797,7 @@ private fun SearchBar(
             value = query,
             onValueChange = onQueryChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Search messages...") },
+            placeholder = { Text(stringResource(R.string.chat_search_placeholder)) },
             shape = RoundedCornerShape(24.dp),
             colors = TextFieldDefaults.colors(
                 focusedIndicatorColor = Color.Transparent,
@@ -948,8 +950,11 @@ private fun QuickCommandChips(
     onCommandSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val commands = remember {
-        listOf("Morning Report", "Missed Calls", "Today's Schedule")
+    val morningReport = stringResource(R.string.chat_quick_morning)
+    val missedCalls = stringResource(R.string.chat_quick_calls)
+    val todaySchedule = stringResource(R.string.chat_quick_schedule)
+    val commands = remember(morningReport, missedCalls, todaySchedule) {
+        listOf(morningReport, missedCalls, todaySchedule)
     }
 
     LazyRow(
@@ -1111,7 +1116,7 @@ private fun InputBar(
                 value = text,
                 onValueChange = onTextChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Ask MobileClaw...") },
+                placeholder = { Text(stringResource(R.string.chat_placeholder)) },
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
@@ -1165,7 +1170,7 @@ private fun InputBar(
                     onDismissRequest = { showAttachmentMenu = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Camera") },
+                        text = { Text(stringResource(R.string.chat_camera)) },
                         onClick = {
                             showAttachmentMenu = false
                             cameraLauncher.launch(cameraImageUri)
@@ -1175,7 +1180,7 @@ private fun InputBar(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Gallery") },
+                        text = { Text(stringResource(R.string.chat_gallery)) },
                         onClick = {
                             showAttachmentMenu = false
                             filePickerLauncher.launch("image/*")
@@ -1185,7 +1190,7 @@ private fun InputBar(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("File") },
+                        text = { Text(stringResource(R.string.chat_file)) },
                         onClick = {
                             showAttachmentMenu = false
                             filePickerLauncher.launch("*/*")

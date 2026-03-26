@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.res.stringResource
+import ai.affiora.mobileclaw.R
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -105,7 +107,7 @@ fun ExecApprovalDialog(
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Action Approval",
+                            text = stringResource(R.string.approval_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
@@ -128,7 +130,7 @@ fun ExecApprovalDialog(
 
                 // Preview
                 Text(
-                    text = "Action Preview",
+                    text = stringResource(R.string.approval_preview),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -144,7 +146,7 @@ fun ExecApprovalDialog(
 
                     // Parameters detail
                     Text(
-                        text = "Parameters",
+                        text = stringResource(R.string.approval_parameters),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -198,7 +200,7 @@ fun ExecApprovalDialog(
                         },
                     )
                     Text(
-                        text = "Allow for this session",
+                        text = stringResource(R.string.approval_session),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -213,7 +215,7 @@ fun ExecApprovalDialog(
                         },
                     )
                     Text(
-                        text = "Always allow permanently",
+                        text = stringResource(R.string.approval_permanent),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -232,7 +234,7 @@ fun ExecApprovalDialog(
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
                 Text(
-                    text = "Auto-deny in ${remainingSeconds}s",
+                    text = stringResource(R.string.approval_auto_deny, remainingSeconds),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
@@ -248,21 +250,21 @@ fun ExecApprovalDialog(
                     OutlinedButton(onClick = onDeny) {
                         Icon(
                             imageVector = Icons.Filled.Close,
-                            contentDescription = "Deny",
+                            contentDescription = stringResource(R.string.approval_deny),
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Deny")
+                        Text(stringResource(R.string.approval_deny))
                     }
                     Spacer(Modifier.width(8.dp))
                     FilledTonalButton(onClick = { onApprove(alwaysAllowChoice) }) {
                         Icon(
                             imageVector = Icons.Filled.Check,
-                            contentDescription = "Approve",
+                            contentDescription = stringResource(R.string.approval_approve),
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Approve")
+                        Text(stringResource(R.string.approval_approve))
                     }
                 }
             }

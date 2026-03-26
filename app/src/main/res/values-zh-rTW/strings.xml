@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MobileClaw</string>
+    <string name="agent_service_standby">待命中</string>
+    <string name="agent_service_processing">處理中\u2026</string>
+    <string name="accessibility_service_description">MobileClaw 使用無障礙服務來讀取和操作您的應用程式，讓 AI 能夠自動化任何應用程式中的任務。</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_chat">對話</string>
+    <string name="nav_devices">裝置</string>
+    <string name="nav_skills">技能</string>
+    <string name="nav_schedule">排程</string>
+    <string name="nav_settings">設定</string>
+
+    <!-- Settings Main List -->
+    <string name="settings_title">設定</string>
+    <string name="settings_ai_provider">AI 供應商</string>
+    <string name="settings_connectors">連接器</string>
+    <string name="settings_permissions">權限</string>
+    <string name="settings_device">裝置</string>
+    <string name="settings_data_storage">資料與儲存空間</string>
+    <string name="settings_about">關於</string>
+    <string name="settings_section_general">一般</string>
+    <string name="settings_section_security">安全性</string>
+    <string name="settings_section_system">系統</string>
+    <string name="settings_no_keys_configured">未設定金鑰</string>
+    <string name="settings_keys_configured">%1$s \u00b7 %2$d 組金鑰%3$s</string>
+    <string name="settings_connectors_subtitle">已連接 %1$d / %2$d</string>
+    <string name="settings_permissions_subtitle">%1$s 模式</string>
+    <string name="settings_configure_device">設定裝置</string>
+    <string name="settings_clear_history">清除歷史記錄</string>
+
+    <!-- Settings Provider Page -->
+    <string name="settings_active">使用中</string>
+    <string name="settings_no_keys_added">尚未新增金鑰。</string>
+    <string name="settings_add_key">+ 新增金鑰</string>
+    <string name="settings_your_keys">您的金鑰</string>
+    <string name="settings_model">模型</string>
+    <string name="settings_add_key_title">新增 API 金鑰</string>
+    <string name="settings_remove_key_title">移除金鑰</string>
+    <string name="settings_remove_key_message">移除 %1$s 的 API 金鑰？您之後可以重新新增。</string>
+    <string name="settings_remove">移除</string>
+    <string name="settings_cancel">取消</string>
+    <string name="settings_provider">供應商</string>
+    <string name="settings_has_key">(已有金鑰)</string>
+    <string name="settings_paste_token">在此貼上金鑰</string>
+    <string name="settings_token">金鑰</string>
+    <string name="settings_no_keys_message">未設定 API 金鑰</string>
+    <string name="settings_add_key_hint">在下方新增金鑰以開始使用。</string>
+
+    <!-- Settings Connectors Page -->
+    <string name="connector_connected">已連接</string>
+    <string name="connector_expired">已過期</string>
+    <string name="connector_not_connected">未連接</string>
+    <string name="connector_disconnect">中斷連線</string>
+    <string name="connector_connect">連接</string>
+    <string name="connector_client_id">用戶端 ID</string>
+    <string name="connector_client_id_hint">您的 OAuth 用戶端 ID</string>
+    <string name="connector_api_key">API 金鑰</string>
+    <string name="connector_bot_token">Bot 權杖</string>
+    <string name="connector_enter_label">輸入您的%1$s</string>
+    <string name="connector_save">儲存</string>
+    <string name="connector_google_coming_soon">Google 登入整合即將推出</string>
+
+    <!-- Settings Permissions Page -->
+    <string name="permissions_mode">權限模式</string>
+    <string name="permissions_default_desc">執行危險操作（如傳送簡訊、撥打電話或修改檔案）時會要求您確認。</string>
+    <string name="permissions_allowlist_desc">僅下方選取的工具會自動核准，其他均需確認。</string>
+    <string name="permissions_bypass_desc">所有工具操作將自動核准，無需確認。</string>
+    <string name="permissions_tool_allowlist">工具白名單</string>
+
+    <!-- Settings Device Page -->
+    <string name="device_name_label">裝置名稱</string>
+    <string name="device_name_placeholder">我的 Android 手機</string>
+    <string name="device_accessibility_service">無障礙服務</string>
+    <string name="device_accessibility_enabled">已啟用 \u2014 MobileClaw 可以控制您的裝置</string>
+    <string name="device_accessibility_disabled">已停用 \u2014 UI 自動化需要此服務</string>
+    <string name="device_enable">啟用</string>
+
+    <!-- Settings Data Page -->
+    <string name="data_storage">儲存空間</string>
+    <string name="data_conversation_history">對話記錄</string>
+    <string name="data_clear_description">移除所有已儲存的對話和訊息。</string>
+    <string name="data_clear_button">清除對話記錄</string>
+    <string name="data_clear_title">清除記錄</string>
+    <string name="data_clear_warning">這將永久刪除所有對話記錄，此操作無法復原。</string>
+    <string name="data_clear_confirm">清除</string>
+
+    <!-- Settings About Page -->
+    <string name="about_by_affiora">by Affiora</string>
+    <string name="about_android_agent">Android AI 助理</string>
+    <string name="about_description">MobileClaw 是一個 AI 驅動的助理，可以控制您的 Android 裝置、自動化任務，並與您喜愛的服務整合。</string>
+
+    <!-- Chat Screen -->
+    <string name="chat_title">MobileClaw</string>
+    <string name="chat_placeholder">詢問 MobileClaw\u2026</string>
+    <string name="chat_search_placeholder">搜尋訊息\u2026</string>
+    <string name="chat_status_connected">已連線</string>
+    <string name="chat_status_processing">處理中\u2026</string>
+    <string name="chat_status_thinking">思考中\u2026</string>
+    <string name="chat_status_error">錯誤</string>
+    <string name="chat_responding">回覆中\u2026</string>
+    <string name="chat_conversations">對話</string>
+    <string name="chat_new_chat">新對話</string>
+    <string name="chat_no_conversations">尚無對話</string>
+    <string name="chat_copied">已複製到剪貼簿</string>
+    <string name="chat_system">系統</string>
+    <string name="chat_tool">工具</string>
+    <string name="chat_quick_morning">晨間報告</string>
+    <string name="chat_quick_calls">未接來電</string>
+    <string name="chat_quick_schedule">今日行程</string>
+    <string name="chat_camera">相機</string>
+    <string name="chat_gallery">相簿</string>
+    <string name="chat_file">檔案</string>
+
+    <!-- Exec Approval Dialog -->
+    <string name="approval_title">操作核准</string>
+    <string name="approval_preview">操作預覽</string>
+    <string name="approval_parameters">參數</string>
+    <string name="approval_session">本次工作階段允許</string>
+    <string name="approval_permanent">永久允許</string>
+    <string name="approval_auto_deny">%1$d 秒後自動拒絕</string>
+    <string name="approval_approve">核准</string>
+    <string name="approval_deny">拒絕</string>
+    <string name="approval_confirm">確認</string>
+
+    <!-- Confirmation Card -->
+    <string name="confirm_prefix">確認：%1$s</string>
+    <string name="confirm_button">確認</string>
+    <string name="cancel_button">取消</string>
+
+    <!-- Risk Levels -->
+    <string name="risk_low">低風險</string>
+    <string name="risk_medium">中風險</string>
+    <string name="risk_high">高風險</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">MobileClaw</string>
+    <string name="onboarding_welcome_subtitle">您的 AI 手機助理，使用自然語言自動化任務。</string>
+    <string name="onboarding_get_started">開始使用</string>
+    <string name="onboarding_connect_provider">連接您的 AI 供應商</string>
+    <string name="onboarding_api_key_hint">您的 API 金鑰僅儲存在此裝置上，絕不會傳送給第三方。</string>
+    <string name="onboarding_api_key_label">API 金鑰</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_permissions_title">權限</string>
+    <string name="onboarding_permissions_subtitle">MobileClaw 需要這些權限來自動化您手機上的任務。</string>
+    <string name="onboarding_grant_permissions">授予權限</string>
+    <string name="onboarding_permissions_result">已授予 %1$d 項，已拒絕 %2$d 項。您可以稍後在設定中授予被拒絕的權限。</string>
+    <string name="onboarding_continue">繼續</string>
+    <string name="onboarding_skip">稍後再說</string>
+    <string name="onboarding_choose_skills">選擇技能</string>
+    <string name="onboarding_skills_subtitle">選擇您要啟用的內建技能，之後可隨時更改。</string>
+    <string name="onboarding_ready">準備就緒！</string>
+    <string name="onboarding_ready_subtitle">MobileClaw 已設定完成，準備為您服務。開始對話以自動化您的第一個任務。</string>
+    <string name="onboarding_start_chatting">開始對話</string>
+
+    <!-- Devices Screen -->
+    <string name="devices_title">裝置</string>
+    <string name="devices_add">新增裝置</string>
+    <string name="devices_coming_soon">即將推出</string>
+    <string name="devices_empty_title">沒有已配對的裝置</string>
+    <string name="devices_empty_subtitle">手機對手機閘道將在第 3 階段推出。</string>
+
+    <!-- Skills Screen -->
+    <string name="skills_title">技能庫</string>
+    <string name="skills_create_ai">以 AI 建立</string>
+    <string name="skills_install_url">從網址安裝</string>
+    <string name="skills_browse">瀏覽 ClawHub</string>
+    <string name="skills_install_dialog_title">從網址安裝技能</string>
+    <string name="skills_url_label">技能網址</string>
+    <string name="skills_url_placeholder">https://clawhub.com/skills/.../SKILL.md</string>
+    <string name="skills_install">安裝</string>
+    <string name="skills_downloading">下載中\u2026</string>
+    <string name="skills_fetching">正在取得技能內容\u2026</string>
+    <string name="skills_scanning">掃描中\u2026</string>
+    <string name="skills_security_scan">正在執行安全掃描\u2026</string>
+    <string name="skills_review">檢視技能</string>
+    <string name="skills_installing">安裝中\u2026</string>
+    <string name="skills_saving">正在儲存技能「%1$s」\u2026</string>
+    <string name="skills_installed">已安裝</string>
+    <string name="skills_installed_message">技能「%1$s」已安裝並啟用。</string>
+    <string name="skills_install_failed">安裝失敗</string>
+    <string name="skills_ok">確定</string>
+    <string name="skills_search">搜尋技能\u2026</string>
+    <string name="skills_warnings">警告：</string>
+    <string name="skills_content_preview">內容預覽：</string>
+
+    <!-- Cron/Schedule Screen -->
+    <string name="cron_title">排程</string>
+    <string name="cron_empty_title">沒有已排程的任務</string>
+    <string name="cron_empty_subtitle">點擊 + 建立週期性任務</string>
+    <string name="cron_new_schedule">新增排程</string>
+    <string name="cron_edit_schedule">編輯排程</string>
+    <string name="cron_name">名稱</string>
+    <string name="cron_name_placeholder">晨間簡報</string>
+    <string name="cron_prompt">提示</string>
+    <string name="cron_prompt_placeholder">AI 應該做什麼？</string>
+    <string name="cron_interval">間隔</string>
+    <string name="cron_interval_hours">間隔（小時）</string>
+    <string name="cron_create">建立</string>
+    <string name="cron_update">更新</string>
+</resources>

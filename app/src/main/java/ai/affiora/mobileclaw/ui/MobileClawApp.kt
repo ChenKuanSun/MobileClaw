@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -37,6 +38,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import ai.affiora.mobileclaw.R
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import ai.affiora.mobileclaw.ui.chat.ChatScreen
 import ai.affiora.mobileclaw.ui.cron.CronScreen
@@ -57,7 +59,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object OnboardingRoute
 
 data class BottomNavItem(
-    val label: String,
+    val labelResId: Int,
     val route: Any,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
@@ -87,11 +89,11 @@ fun MobileClawApp(userPreferences: UserPreferences) {
 
     val bottomNavItems = remember {
         listOf(
-            BottomNavItem("Chat", ChatRoute, Icons.Filled.Chat, Icons.Outlined.Chat),
-            BottomNavItem("Devices", DevicesRoute, Icons.Filled.Devices, Icons.Outlined.Devices),
-            BottomNavItem("Skills", SkillsRoute, Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
-            BottomNavItem("Schedule", CronRoute, Icons.Filled.Schedule, Icons.Outlined.Schedule),
-            BottomNavItem("Settings", SettingsRoute, Icons.Filled.Settings, Icons.Outlined.Settings),
+            BottomNavItem(R.string.nav_chat, ChatRoute, Icons.Filled.Chat, Icons.Outlined.Chat),
+            BottomNavItem(R.string.nav_devices, DevicesRoute, Icons.Filled.Devices, Icons.Outlined.Devices),
+            BottomNavItem(R.string.nav_skills, SkillsRoute, Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+            BottomNavItem(R.string.nav_schedule, CronRoute, Icons.Filled.Schedule, Icons.Outlined.Schedule),
+            BottomNavItem(R.string.nav_settings, SettingsRoute, Icons.Filled.Settings, Icons.Outlined.Settings),
         )
     }
 
@@ -109,6 +111,7 @@ fun MobileClawApp(userPreferences: UserPreferences) {
                 NavigationBar {
                     bottomNavItems.forEach { item ->
                         val selected = currentDestination?.hasRoute(item.route::class) == true
+                        val label = stringResource(item.labelResId)
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
@@ -123,10 +126,10 @@ fun MobileClawApp(userPreferences: UserPreferences) {
                             icon = {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = item.label,
+                                    contentDescription = label,
                                 )
                             },
-                            label = { Text(item.label) },
+                            label = { Text(label) },
                         )
                     }
                 }

@@ -30,7 +30,7 @@ object Connectors {
     val NOTION = ConnectorConfig(
         id = "notion",
         name = "Notion",
-        icon = "\uD83D\uDCDD",
+        icon = "edit_note",
         authType = ConnectorAuthType.OAUTH2_PKCE,
         authorizationUrl = "https://api.notion.com/v1/oauth/authorize",
         tokenUrl = "https://api.notion.com/v1/oauth/token",
@@ -43,7 +43,7 @@ object Connectors {
     val GITHUB = ConnectorConfig(
         id = "github",
         name = "GitHub",
-        icon = "\uD83D\uDC19",
+        icon = "code",
         authType = ConnectorAuthType.OAUTH2_PKCE,
         authorizationUrl = "https://github.com/login/oauth/authorize",
         tokenUrl = "https://github.com/login/oauth/access_token",
@@ -56,7 +56,7 @@ object Connectors {
     val SLACK = ConnectorConfig(
         id = "slack",
         name = "Slack",
-        icon = "\uD83D\uDCAC",
+        icon = "chat",
         authType = ConnectorAuthType.OAUTH2_PKCE,
         authorizationUrl = "https://slack.com/oauth/v2/authorize",
         tokenUrl = "https://slack.com/api/oauth.v2.access",
@@ -69,7 +69,7 @@ object Connectors {
     val SPOTIFY = ConnectorConfig(
         id = "spotify",
         name = "Spotify",
-        icon = "\uD83C\uDFB5",
+        icon = "music_note",
         authType = ConnectorAuthType.OAUTH2_PKCE,
         authorizationUrl = "https://accounts.spotify.com/authorize",
         tokenUrl = "https://accounts.spotify.com/api/token",
@@ -82,7 +82,7 @@ object Connectors {
     val GOOGLE = ConnectorConfig(
         id = "google",
         name = "Google (Gmail, Calendar, Drive)",
-        icon = "\uD83D\uDD35",
+        icon = "calendar_today",
         authType = ConnectorAuthType.GOOGLE_SIGNIN,
         authorizationUrl = null,
         tokenUrl = null,
@@ -99,7 +99,7 @@ object Connectors {
     val TELEGRAM = ConnectorConfig(
         id = "telegram",
         name = "Telegram",
-        icon = "\u2708\uFE0F",
+        icon = "send",
         authType = ConnectorAuthType.BOT_TOKEN,
         authorizationUrl = null,
         tokenUrl = null,
@@ -112,7 +112,7 @@ object Connectors {
     val OPENAI = ConnectorConfig(
         id = "openai",
         name = "OpenAI",
-        icon = "\uD83E\uDD16",
+        icon = "smart_toy",
         authType = ConnectorAuthType.API_KEY,
         authorizationUrl = null,
         tokenUrl = null,

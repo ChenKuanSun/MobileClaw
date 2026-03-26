@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MobileClaw</string>
+    <string name="agent_service_standby">待機中</string>
+    <string name="agent_service_processing">処理中\u2026</string>
+    <string name="accessibility_service_description">MobileClawはアクセシビリティを使用して、アプリの読み取りと操作を行います。これにより、AIがあらゆるアプリでタスクを自動化できます。</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_chat">チャット</string>
+    <string name="nav_devices">デバイス</string>
+    <string name="nav_skills">スキル</string>
+    <string name="nav_schedule">スケジュール</string>
+    <string name="nav_settings">設定</string>
+
+    <!-- Settings Main List -->
+    <string name="settings_title">設定</string>
+    <string name="settings_ai_provider">AIプロバイダー</string>
+    <string name="settings_connectors">コネクタ</string>
+    <string name="settings_permissions">権限</string>
+    <string name="settings_device">デバイス</string>
+    <string name="settings_data_storage">データとストレージ</string>
+    <string name="settings_about">アプリについて</string>
+    <string name="settings_section_general">一般</string>
+    <string name="settings_section_security">セキュリティ</string>
+    <string name="settings_section_system">システム</string>
+    <string name="settings_no_keys_configured">キー未設定</string>
+    <string name="settings_keys_configured">%1$s \u00b7 %2$d キー%3$s</string>
+    <string name="settings_connectors_subtitle">%1$d / %2$d 接続済み</string>
+    <string name="settings_permissions_subtitle">%1$s モード</string>
+    <string name="settings_configure_device">デバイスを設定</string>
+    <string name="settings_clear_history">履歴を消去</string>
+
+    <!-- Settings Provider Page -->
+    <string name="settings_active">アクティブ</string>
+    <string name="settings_no_keys_added">キーはまだ追加されていません。</string>
+    <string name="settings_add_key">+ キーを追加</string>
+    <string name="settings_your_keys">あなたのキー</string>
+    <string name="settings_model">モデル</string>
+    <string name="settings_add_key_title">APIキーを追加</string>
+    <string name="settings_remove_key_title">キーを削除</string>
+    <string name="settings_remove_key_message">%1$sのAPIキーを削除しますか？後で再追加できます。</string>
+    <string name="settings_remove">削除</string>
+    <string name="settings_cancel">キャンセル</string>
+    <string name="settings_provider">プロバイダー</string>
+    <string name="settings_has_key">(キー設定済み)</string>
+    <string name="settings_paste_token">ここにトークンを貼り付け</string>
+    <string name="settings_token">トークン</string>
+    <string name="settings_no_keys_message">APIキー未設定</string>
+    <string name="settings_add_key_hint">以下からキーを追加して始めましょう。</string>
+
+    <!-- Settings Connectors Page -->
+    <string name="connector_connected">接続済み</string>
+    <string name="connector_expired">期限切れ</string>
+    <string name="connector_not_connected">未接続</string>
+    <string name="connector_disconnect">切断</string>
+    <string name="connector_connect">接続</string>
+    <string name="connector_client_id">クライアントID</string>
+    <string name="connector_client_id_hint">OAuthクライアントID</string>
+    <string name="connector_api_key">APIキー</string>
+    <string name="connector_bot_token">Botトークン</string>
+    <string name="connector_enter_label">%1$sを入力</string>
+    <string name="connector_save">保存</string>
+    <string name="connector_google_coming_soon">Googleサインイン統合は近日公開</string>
+
+    <!-- Settings Permissions Page -->
+    <string name="permissions_mode">権限モード</string>
+    <string name="permissions_default_desc">SMS送信、通話、ファイル変更などの危険な操作は確認が求められます。</string>
+    <string name="permissions_allowlist_desc">以下で選択したツールのみ自動承認されます。その他は確認が必要です。</string>
+    <string name="permissions_bypass_desc">すべてのツール操作が確認なしで自動承認されます。</string>
+    <string name="permissions_tool_allowlist">ツール許可リスト</string>
+
+    <!-- Settings Device Page -->
+    <string name="device_name_label">デバイス名</string>
+    <string name="device_name_placeholder">マイAndroidスマホ</string>
+    <string name="device_accessibility_service">アクセシビリティサービス</string>
+    <string name="device_accessibility_enabled">有効 \u2014 MobileClawがデバイスを制御できます</string>
+    <string name="device_accessibility_disabled">無効 \u2014 UI自動化に必要です</string>
+    <string name="device_enable">有効にする</string>
+
+    <!-- Settings Data Page -->
+    <string name="data_storage">ストレージ</string>
+    <string name="data_conversation_history">会話履歴</string>
+    <string name="data_clear_description">保存されたすべての会話とメッセージを削除します。</string>
+    <string name="data_clear_button">会話履歴を消去</string>
+    <string name="data_clear_title">履歴を消去</string>
+    <string name="data_clear_warning">すべての会話履歴が完全に削除されます。この操作は取り消せません。</string>
+    <string name="data_clear_confirm">消去</string>
+
+    <!-- Settings About Page -->
+    <string name="about_by_affiora">by Affiora</string>
+    <string name="about_android_agent">Android AIエージェント</string>
+    <string name="about_description">MobileClawはAI搭載のエージェントで、Androidデバイスの制御、タスクの自動化、お気に入りのサービスとの連携が可能です。</string>
+
+    <!-- Chat Screen -->
+    <string name="chat_title">MobileClaw</string>
+    <string name="chat_placeholder">MobileClawに質問\u2026</string>
+    <string name="chat_search_placeholder">メッセージを検索\u2026</string>
+    <string name="chat_status_connected">接続済み</string>
+    <string name="chat_status_processing">処理中\u2026</string>
+    <string name="chat_status_thinking">思考中\u2026</string>
+    <string name="chat_status_error">エラー</string>
+    <string name="chat_responding">応答中\u2026</string>
+    <string name="chat_conversations">会話</string>
+    <string name="chat_new_chat">新しいチャット</string>
+    <string name="chat_no_conversations">会話はまだありません</string>
+    <string name="chat_copied">クリップボードにコピー</string>
+    <string name="chat_system">システム</string>
+    <string name="chat_tool">ツール</string>
+    <string name="chat_quick_morning">朝のレポート</string>
+    <string name="chat_quick_calls">不在着信</string>
+    <string name="chat_quick_schedule">今日の予定</string>
+    <string name="chat_camera">カメラ</string>
+    <string name="chat_gallery">ギャラリー</string>
+    <string name="chat_file">ファイル</string>
+
+    <!-- Exec Approval Dialog -->
+    <string name="approval_title">操作の承認</string>
+    <string name="approval_preview">操作プレビュー</string>
+    <string name="approval_parameters">パラメータ</string>
+    <string name="approval_session">このセッションで許可</string>
+    <string name="approval_permanent">常に永続的に許可</string>
+    <string name="approval_auto_deny">%1$d秒後に自動拒否</string>
+    <string name="approval_approve">承認</string>
+    <string name="approval_deny">拒否</string>
+    <string name="approval_confirm">確認</string>
+
+    <!-- Confirmation Card -->
+    <string name="confirm_prefix">確認: %1$s</string>
+    <string name="confirm_button">確認</string>
+    <string name="cancel_button">キャンセル</string>
+
+    <!-- Risk Levels -->
+    <string name="risk_low">低リスク</string>
+    <string name="risk_medium">中リスク</string>
+    <string name="risk_high">高リスク</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">MobileClaw</string>
+    <string name="onboarding_welcome_subtitle">自然言語でタスクを自動化するAI搭載スマホアシスタント。</string>
+    <string name="onboarding_get_started">始める</string>
+    <string name="onboarding_connect_provider">AIプロバイダーに接続</string>
+    <string name="onboarding_api_key_hint">APIキーはこのデバイスにのみ保存され、第三者に送信されることはありません。</string>
+    <string name="onboarding_api_key_label">APIキー</string>
+    <string name="onboarding_next">次へ</string>
+    <string name="onboarding_permissions_title">権限</string>
+    <string name="onboarding_permissions_subtitle">MobileClawがスマホでタスクを自動化するために、これらの権限が必要です。</string>
+    <string name="onboarding_grant_permissions">権限を許可</string>
+    <string name="onboarding_permissions_result">%1$d件許可、%2$d件拒否。拒否した権限は後で設定から許可できます。</string>
+    <string name="onboarding_continue">続ける</string>
+    <string name="onboarding_skip">後で</string>
+    <string name="onboarding_choose_skills">スキルを選択</string>
+    <string name="onboarding_skills_subtitle">有効にする内蔵スキルを選択してください。後で変更できます。</string>
+    <string name="onboarding_ready">準備完了！</string>
+    <string name="onboarding_ready_subtitle">MobileClawの設定が完了しました。会話を始めて最初のタスクを自動化しましょう。</string>
+    <string name="onboarding_start_chatting">チャットを開始</string>
+
+    <!-- Devices Screen -->
+    <string name="devices_title">デバイス</string>
+    <string name="devices_add">デバイスを追加</string>
+    <string name="devices_coming_soon">近日公開</string>
+    <string name="devices_empty_title">ペアリング済みデバイスなし</string>
+    <string name="devices_empty_subtitle">Phone-to-Phoneゲートウェイはフェーズ3で公開予定。</string>
+
+    <!-- Skills Screen -->
+    <string name="skills_title">スキルライブラリ</string>
+    <string name="skills_create_ai">AIで作成</string>
+    <string name="skills_install_url">URLからインストール</string>
+    <string name="skills_browse">ClawHubを閲覧</string>
+    <string name="skills_install_dialog_title">URLからスキルをインストール</string>
+    <string name="skills_url_label">スキルURL</string>
+    <string name="skills_install">インストール</string>
+    <string name="skills_downloading">ダウンロード中\u2026</string>
+    <string name="skills_fetching">スキルコンテンツを取得中\u2026</string>
+    <string name="skills_scanning">スキャン中\u2026</string>
+    <string name="skills_security_scan">セキュリティスキャン実行中\u2026</string>
+    <string name="skills_review">スキルを確認</string>
+    <string name="skills_installing">インストール中\u2026</string>
+    <string name="skills_saving">スキル「%1$s」を保存中\u2026</string>
+    <string name="skills_installed">インストール完了</string>
+    <string name="skills_installed_message">スキル「%1$s」がインストールされ有効化されました。</string>
+    <string name="skills_install_failed">インストール失敗</string>
+    <string name="skills_ok">OK</string>
+    <string name="skills_search">スキルを検索\u2026</string>
+    <string name="skills_warnings">警告：</string>
+    <string name="skills_content_preview">コンテンツプレビュー：</string>
+
+    <!-- Cron/Schedule Screen -->
+    <string name="cron_title">スケジュール</string>
+    <string name="cron_empty_title">スケジュールタスクなし</string>
+    <string name="cron_empty_subtitle">+をタップして定期タスクを作成</string>
+    <string name="cron_new_schedule">新しいスケジュール</string>
+    <string name="cron_edit_schedule">スケジュールを編集</string>
+    <string name="cron_name">名前</string>
+    <string name="cron_name_placeholder">朝のブリーフィング</string>
+    <string name="cron_prompt">プロンプト</string>
+    <string name="cron_prompt_placeholder">AIに何をさせますか？</string>
+    <string name="cron_interval">間隔</string>
+    <string name="cron_interval_hours">間隔（時間）</string>
+    <string name="cron_create">作成</string>
+    <string name="cron_update">更新</string>
+</resources>

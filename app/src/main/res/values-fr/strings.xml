@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MobileClaw</string>
+    <string name="agent_service_standby">En attente</string>
+    <string name="agent_service_processing">Traitement\u2026</string>
+    <string name="accessibility_service_description">MobileClaw utilise l\'accessibilit\u00e9 pour lire et interagir avec vos applications. Cela permet \u00e0 l\'IA d\'automatiser des t\u00e2ches dans n\'importe quelle application.</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_chat">Discussion</string>
+    <string name="nav_devices">Appareils</string>
+    <string name="nav_skills">Comp\u00e9tences</string>
+    <string name="nav_schedule">Planification</string>
+    <string name="nav_settings">Param\u00e8tres</string>
+
+    <!-- Settings Main List -->
+    <string name="settings_title">Param\u00e8tres</string>
+    <string name="settings_ai_provider">Fournisseur IA</string>
+    <string name="settings_connectors">Connecteurs</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="settings_device">Appareil</string>
+    <string name="settings_data_storage">Donn\u00e9es et stockage</string>
+    <string name="settings_about">\u00c0 propos</string>
+    <string name="settings_section_general">G\u00c9N\u00c9RAL</string>
+    <string name="settings_section_security">S\u00c9CURIT\u00c9</string>
+    <string name="settings_section_system">SYST\u00c8ME</string>
+    <string name="settings_no_keys_configured">Aucune cl\u00e9 configur\u00e9e</string>
+    <string name="settings_keys_configured">%1$s \u00b7 %2$d cl\u00e9%3$s</string>
+    <string name="settings_connectors_subtitle">%1$d sur %2$d connect\u00e9s</string>
+    <string name="settings_permissions_subtitle">Mode %1$s</string>
+    <string name="settings_configure_device">Configurer l\'appareil</string>
+    <string name="settings_clear_history">Effacer l\'historique</string>
+
+    <!-- Settings Provider Page -->
+    <string name="settings_active">Actif</string>
+    <string name="settings_no_keys_added">Aucune cl\u00e9 ajout\u00e9e.</string>
+    <string name="settings_add_key">+ Ajouter une cl\u00e9</string>
+    <string name="settings_your_keys">VOS CL\u00c9S</string>
+    <string name="settings_model">MOD\u00c8LE</string>
+    <string name="settings_add_key_title">Ajouter une cl\u00e9 API</string>
+    <string name="settings_remove_key_title">Supprimer la cl\u00e9</string>
+    <string name="settings_remove_key_message">Supprimer la cl\u00e9 API de %1$s ? Vous pourrez la rajouter plus tard.</string>
+    <string name="settings_remove">Supprimer</string>
+    <string name="settings_cancel">Annuler</string>
+    <string name="settings_provider">Fournisseur</string>
+    <string name="settings_has_key">(cl\u00e9 configur\u00e9e)</string>
+    <string name="settings_paste_token">Collez le jeton ici</string>
+    <string name="settings_token">Jeton</string>
+    <string name="settings_no_keys_message">Aucune cl\u00e9 API configur\u00e9e</string>
+    <string name="settings_add_key_hint">Ajoutez une cl\u00e9 ci-dessous pour commencer.</string>
+
+    <!-- Settings Connectors Page -->
+    <string name="connector_connected">Connect\u00e9</string>
+    <string name="connector_expired">Expir\u00e9</string>
+    <string name="connector_not_connected">Non connect\u00e9</string>
+    <string name="connector_disconnect">D\u00e9connecter</string>
+    <string name="connector_connect">Connecter</string>
+    <string name="connector_client_id">ID Client</string>
+    <string name="connector_client_id_hint">Votre ID Client OAuth</string>
+    <string name="connector_api_key">Cl\u00e9 API</string>
+    <string name="connector_bot_token">Jeton Bot</string>
+    <string name="connector_enter_label">Entrez votre %1$s</string>
+    <string name="connector_save">Enregistrer</string>
+    <string name="connector_google_coming_soon">Int\u00e9gration Google Sign-In bient\u00f4t disponible</string>
+
+    <!-- Settings Permissions Page -->
+    <string name="permissions_mode">Mode de permission</string>
+    <string name="permissions_default_desc">Vous serez invit\u00e9 \u00e0 confirmer les actions dangereuses comme l\'envoi de SMS, les appels ou la modification de fichiers.</string>
+    <string name="permissions_allowlist_desc">Seuls les outils s\u00e9lectionn\u00e9s ci-dessous seront auto-approuv\u00e9s. Tous les autres n\u00e9cessitent une confirmation.</string>
+    <string name="permissions_bypass_desc">Toutes les actions seront auto-approuv\u00e9es sans confirmation.</string>
+    <string name="permissions_tool_allowlist">LISTE D\'OUTILS AUTORIS\u00c9S</string>
+
+    <!-- Settings Device Page -->
+    <string name="device_name_label">Nom de l\'appareil</string>
+    <string name="device_name_placeholder">Mon t\u00e9l\u00e9phone Android</string>
+    <string name="device_accessibility_service">Service d\'accessibilit\u00e9</string>
+    <string name="device_accessibility_enabled">Activ\u00e9 \u2014 MobileClaw peut contr\u00f4ler votre appareil</string>
+    <string name="device_accessibility_disabled">D\u00e9sactiv\u00e9 \u2014 requis pour l\'automatisation UI</string>
+    <string name="device_enable">Activer</string>
+
+    <!-- Settings Data Page -->
+    <string name="data_storage">STOCKAGE</string>
+    <string name="data_conversation_history">Historique des conversations</string>
+    <string name="data_clear_description">Supprimez toutes les conversations et messages sauvegard\u00e9s.</string>
+    <string name="data_clear_button">Effacer l\'historique</string>
+    <string name="data_clear_title">Effacer l\'historique</string>
+    <string name="data_clear_warning">Cela supprimera d\u00e9finitivement tout l\'historique des conversations. Cette action est irr\u00e9versible.</string>
+    <string name="data_clear_confirm">Effacer</string>
+
+    <!-- Settings About Page -->
+    <string name="about_by_affiora">par Affiora</string>
+    <string name="about_android_agent">Agent IA Android</string>
+    <string name="about_description">MobileClaw est un agent aliment\u00e9 par l\'IA qui peut contr\u00f4ler votre appareil Android, automatiser des t\u00e2ches et s\'int\u00e9grer \u00e0 vos services pr\u00e9f\u00e9r\u00e9s.</string>
+
+    <!-- Chat Screen -->
+    <string name="chat_title">MobileClaw</string>
+    <string name="chat_placeholder">Demandez \u00e0 MobileClaw\u2026</string>
+    <string name="chat_search_placeholder">Rechercher des messages\u2026</string>
+    <string name="chat_status_connected">Connect\u00e9</string>
+    <string name="chat_status_processing">Traitement\u2026</string>
+    <string name="chat_status_thinking">R\u00e9flexion\u2026</string>
+    <string name="chat_status_error">Erreur</string>
+    <string name="chat_responding">R\u00e9ponse en cours\u2026</string>
+    <string name="chat_conversations">Conversations</string>
+    <string name="chat_new_chat">Nouvelle discussion</string>
+    <string name="chat_no_conversations">Aucune conversation</string>
+    <string name="chat_copied">Copi\u00e9 dans le presse-papiers</string>
+    <string name="chat_system">Syst\u00e8me</string>
+    <string name="chat_tool">Outil</string>
+    <string name="chat_quick_morning">Rapport du matin</string>
+    <string name="chat_quick_calls">Appels manqu\u00e9s</string>
+    <string name="chat_quick_schedule">Programme du jour</string>
+    <string name="chat_camera">Cam\u00e9ra</string>
+    <string name="chat_gallery">Galerie</string>
+    <string name="chat_file">Fichier</string>
+
+    <!-- Exec Approval Dialog -->
+    <string name="approval_title">Approbation d\'action</string>
+    <string name="approval_preview">Aper\u00e7u de l\'action</string>
+    <string name="approval_parameters">Param\u00e8tres</string>
+    <string name="approval_session">Autoriser pour cette session</string>
+    <string name="approval_permanent">Toujours autoriser</string>
+    <string name="approval_auto_deny">Refus automatique dans %1$ds</string>
+    <string name="approval_approve">Approuver</string>
+    <string name="approval_deny">Refuser</string>
+    <string name="approval_confirm">Confirmer</string>
+
+    <!-- Confirmation Card -->
+    <string name="confirm_prefix">Confirmer : %1$s</string>
+    <string name="confirm_button">Confirmer</string>
+    <string name="cancel_button">Annuler</string>
+
+    <!-- Risk Levels -->
+    <string name="risk_low">Risque faible</string>
+    <string name="risk_medium">Risque moyen</string>
+    <string name="risk_high">Risque \u00e9lev\u00e9</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">MobileClaw</string>
+    <string name="onboarding_welcome_subtitle">Votre assistant t\u00e9l\u00e9phonique IA qui automatise les t\u00e2ches en langage naturel.</string>
+    <string name="onboarding_get_started">Commencer</string>
+    <string name="onboarding_connect_provider">Connectez votre fournisseur IA</string>
+    <string name="onboarding_api_key_hint">Votre cl\u00e9 API est stock\u00e9e localement sur cet appareil et n\'est jamais envoy\u00e9e \u00e0 des tiers.</string>
+    <string name="onboarding_api_key_label">Cl\u00e9 API</string>
+    <string name="onboarding_next">Suivant</string>
+    <string name="onboarding_permissions_title">Permissions</string>
+    <string name="onboarding_permissions_subtitle">MobileClaw a besoin de ces permissions pour automatiser les t\u00e2ches sur votre t\u00e9l\u00e9phone.</string>
+    <string name="onboarding_grant_permissions">Accorder les permissions</string>
+    <string name="onboarding_permissions_result">%1$d accord\u00e9es, %2$d refus\u00e9es. Vous pouvez accorder les permissions refus\u00e9es plus tard dans les Param\u00e8tres.</string>
+    <string name="onboarding_continue">Continuer</string>
+    <string name="onboarding_skip">Plus tard</string>
+    <string name="onboarding_choose_skills">Choisir les comp\u00e9tences</string>
+    <string name="onboarding_skills_subtitle">S\u00e9lectionnez les comp\u00e9tences int\u00e9gr\u00e9es que vous souhaitez activer. Vous pourrez les modifier plus tard.</string>
+    <string name="onboarding_ready">Pr\u00eat !</string>
+    <string name="onboarding_ready_subtitle">MobileClaw est configur\u00e9 et pr\u00eat \u00e0 vous assister. D\u00e9marrez une conversation pour automatiser votre premi\u00e8re t\u00e2che.</string>
+    <string name="onboarding_start_chatting">D\u00e9marrer la discussion</string>
+
+    <!-- Devices Screen -->
+    <string name="devices_title">Appareils</string>
+    <string name="devices_add">Ajouter un appareil</string>
+    <string name="devices_coming_soon">Bient\u00f4t disponible</string>
+    <string name="devices_empty_title">Aucun appareil appair\u00e9</string>
+    <string name="devices_empty_subtitle">La passerelle t\u00e9l\u00e9phone-\u00e0-t\u00e9l\u00e9phone arrive en Phase 3.</string>
+
+    <!-- Skills Screen -->
+    <string name="skills_title">Biblioth\u00e8que de comp\u00e9tences</string>
+    <string name="skills_create_ai">Cr\u00e9er avec l\'IA</string>
+    <string name="skills_install_url">Installer depuis une URL</string>
+    <string name="skills_browse">Parcourir ClawHub</string>
+    <string name="skills_install_dialog_title">Installer depuis une URL</string>
+    <string name="skills_url_label">URL de la comp\u00e9tence</string>
+    <string name="skills_install">Installer</string>
+    <string name="skills_downloading">T\u00e9l\u00e9chargement\u2026</string>
+    <string name="skills_fetching">R\u00e9cup\u00e9ration du contenu\u2026</string>
+    <string name="skills_scanning">Analyse\u2026</string>
+    <string name="skills_security_scan">Analyse de s\u00e9curit\u00e9 en cours\u2026</string>
+    <string name="skills_review">V\u00e9rifier la comp\u00e9tence</string>
+    <string name="skills_installing">Installation\u2026</string>
+    <string name="skills_saving">Enregistrement de la comp\u00e9tence \u00ab %1$s \u00bb\u2026</string>
+    <string name="skills_installed">Install\u00e9</string>
+    <string name="skills_installed_message">Comp\u00e9tence \u00ab %1$s \u00bb install\u00e9e et activ\u00e9e.</string>
+    <string name="skills_install_failed">\u00c9chec de l\'installation</string>
+    <string name="skills_ok">OK</string>
+    <string name="skills_search">Rechercher des comp\u00e9tences\u2026</string>
+    <string name="skills_warnings">Avertissements :</string>
+    <string name="skills_content_preview">Aper\u00e7u du contenu :</string>
+
+    <!-- Cron/Schedule Screen -->
+    <string name="cron_title">Planifications</string>
+    <string name="cron_empty_title">Aucune t\u00e2che planifi\u00e9e</string>
+    <string name="cron_empty_subtitle">Appuyez sur + pour cr\u00e9er une t\u00e2che r\u00e9currente</string>
+    <string name="cron_new_schedule">Nouvelle planification</string>
+    <string name="cron_edit_schedule">Modifier la planification</string>
+    <string name="cron_name">Nom</string>
+    <string name="cron_name_placeholder">Briefing matinal</string>
+    <string name="cron_prompt">Commande</string>
+    <string name="cron_prompt_placeholder">Que doit faire l\'IA ?</string>
+    <string name="cron_interval">Intervalle</string>
+    <string name="cron_interval_hours">Intervalle (heures)</string>
+    <string name="cron_create">Cr\u00e9er</string>
+    <string name="cron_update">Mettre \u00e0 jour</string>
+</resources>

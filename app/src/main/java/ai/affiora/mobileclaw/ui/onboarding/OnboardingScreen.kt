@@ -1,5 +1,6 @@
 package ai.affiora.mobileclaw.ui.onboarding
 
+import ai.affiora.mobileclaw.R
 import ai.affiora.mobileclaw.agent.AiProvider
 import android.Manifest
 import android.os.Build
@@ -61,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -209,7 +211,7 @@ private fun WelcomePage(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "MobileClaw",
+            text = stringResource(R.string.onboarding_welcome_title),
             style = MaterialTheme.typography.displayMedium,
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.Center,
@@ -218,7 +220,7 @@ private fun WelcomePage(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Your AI-powered phone assistant that automates tasks using natural language.",
+            text = stringResource(R.string.onboarding_welcome_subtitle),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -230,7 +232,7 @@ private fun WelcomePage(
             onClick = onGetStarted,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Get Started")
+            Text(stringResource(R.string.onboarding_get_started))
             Spacer(modifier = Modifier.width(8.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -271,7 +273,7 @@ private fun ApiKeyPage(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Connect Your AI Provider",
+            text = stringResource(R.string.onboarding_connect_provider),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
@@ -279,7 +281,7 @@ private fun ApiKeyPage(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Your API key is stored locally on this device and never sent to third parties.",
+            text = stringResource(R.string.onboarding_api_key_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -299,7 +301,7 @@ private fun ApiKeyPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                label = { Text("Provider") },
+                label = { Text(stringResource(R.string.settings_provider)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerDropdownExpanded) },
             )
             ExposedDropdownMenu(
@@ -325,7 +327,7 @@ private fun ApiKeyPage(
             value = apiKey,
             onValueChange = onApiKeyChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("API Key") },
+            label = { Text(stringResource(R.string.onboarding_api_key_label)) },
             placeholder = { Text(selectedProvider.tokenHint) },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
@@ -344,7 +346,7 @@ private fun ApiKeyPage(
             modifier = Modifier.fillMaxWidth(),
             enabled = apiKey.isNotBlank(),
         ) {
-            Text("Next")
+            Text(stringResource(R.string.onboarding_next))
         }
     }
 }
@@ -396,7 +398,7 @@ private fun PermissionsPage(
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "Permissions",
+            text = stringResource(R.string.onboarding_permissions_title),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
@@ -404,7 +406,7 @@ private fun PermissionsPage(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "MobileClaw needs these permissions to automate tasks on your phone.",
+            text = stringResource(R.string.onboarding_permissions_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -423,7 +425,7 @@ private fun PermissionsPage(
             val deniedCount = permissionResults.count { !it.value }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "$grantedCount granted, $deniedCount denied. You can grant denied permissions later in Settings.",
+                text = stringResource(R.string.onboarding_permissions_result, grantedCount, deniedCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -442,7 +444,7 @@ private fun PermissionsPage(
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
             ) {
-                Text("Grant Permissions")
+                Text(stringResource(R.string.onboarding_grant_permissions))
             }
         }
 
@@ -452,7 +454,7 @@ private fun PermissionsPage(
                 .fillMaxWidth()
                 .padding(bottom = 32.dp),
         ) {
-            Text(if (hasRequested) "Continue" else "Skip for Now")
+            Text(if (hasRequested) stringResource(R.string.onboarding_continue) else stringResource(R.string.onboarding_skip))
         }
     }
 }
@@ -522,7 +524,7 @@ private fun SkillSelectionPage(
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "Choose Skills",
+            text = stringResource(R.string.onboarding_choose_skills),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
@@ -530,7 +532,7 @@ private fun SkillSelectionPage(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Select the built-in skills you want to enable. You can change these later.",
+            text = stringResource(R.string.onboarding_skills_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -561,7 +563,7 @@ private fun SkillSelectionPage(
                 .fillMaxWidth()
                 .padding(bottom = 32.dp),
         ) {
-            Text("Next")
+            Text(stringResource(R.string.onboarding_next))
         }
     }
 }
@@ -631,7 +633,7 @@ private fun CompletionPage(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Ready!",
+            text = stringResource(R.string.onboarding_ready),
             style = MaterialTheme.typography.displaySmall,
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.Center,
@@ -640,7 +642,7 @@ private fun CompletionPage(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "MobileClaw is configured and ready to assist you. Start a conversation to automate your first task.",
+            text = stringResource(R.string.onboarding_ready_subtitle),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -655,7 +657,7 @@ private fun CompletionPage(
                 onClick = onStartChatting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Start Chatting")
+                Text(stringResource(R.string.onboarding_start_chatting))
             }
         }
     }

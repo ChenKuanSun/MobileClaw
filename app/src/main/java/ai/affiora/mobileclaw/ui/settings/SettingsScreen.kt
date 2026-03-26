@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.provider.Settings
 import ai.affiora.mobileclaw.BuildConfig
+import ai.affiora.mobileclaw.R
 import ai.affiora.mobileclaw.agent.AiProvider
 import ai.affiora.mobileclaw.agent.PermissionManager
 import ai.affiora.mobileclaw.connectors.ConnectorAuthType
@@ -41,8 +42,22 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -78,22 +93,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
-private val pageTitles = mapOf(
-    "main" to "Settings",
-    "provider" to "AI Provider",
-    "connectors" to "Connectors",
-    "permissions" to "Permissions",
-    "device" to "Device",
-    "data" to "Data & Storage",
-    "about" to "About",
-)
+@Composable
+private fun pageTitle(page: String): String = when (page) {
+    "main" -> stringResource(R.string.settings_title)
+    "provider" -> stringResource(R.string.settings_ai_provider)
+    "connectors" -> stringResource(R.string.settings_connectors)
+    "permissions" -> stringResource(R.string.settings_permissions)
+    "device" -> stringResource(R.string.settings_device)
+    "data" -> stringResource(R.string.settings_data_storage)
+    "about" -> stringResource(R.string.settings_about)
+    else -> stringResource(R.string.settings_title)
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -129,8 +148,8 @@ fun SettingsScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear History") },
-            text = { Text("This will permanently delete all conversation history. This action cannot be undone.") },
+            title = { Text(stringResource(R.string.data_clear_title)) },
+            text = { Text(stringResource(R.string.data_clear_warning)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -138,12 +157,12 @@ fun SettingsScreen(
                         showClearDialog = false
                     },
                 ) {
-                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.data_clear_confirm), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.settings_cancel))
                 }
             },
         )
@@ -154,7 +173,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        pageTitles[currentPage] ?: "Settings",
+                        pageTitle(currentPage),
                         fontWeight = FontWeight.Bold,
                     )
                 },
@@ -239,53 +258,53 @@ private fun SettingsMainList(
             .verticalScroll(rememberScrollState()),
     ) {
         // ── GENERAL ──
-        SectionHeader("GENERAL")
+        SectionHeader(stringResource(R.string.settings_section_general))
 
         SettingsRow(
-            icon = "\uD83E\uDD16",
-            title = "AI Provider",
+            icon = Icons.Filled.SmartToy,
+            title = stringResource(R.string.settings_ai_provider),
             subtitle = if (configuredTokens > 0) "$modelDisplay \u00b7 $configuredTokens key${if (configuredTokens != 1) "s" else ""}"
-            else "No keys configured",
+            else stringResource(R.string.settings_no_keys_configured),
             onClick = { onNavigate("provider") },
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingsRow(
-            icon = "\uD83D\uDD17",
-            title = "Connectors",
-            subtitle = "$connectedCount of $totalConnectors connected",
+            icon = Icons.Filled.Link,
+            title = stringResource(R.string.settings_connectors),
+            subtitle = stringResource(R.string.settings_connectors_subtitle, connectedCount, totalConnectors),
             onClick = { onNavigate("connectors") },
         )
 
         // ── SECURITY ──
-        SectionHeader("SECURITY")
+        SectionHeader(stringResource(R.string.settings_section_security))
 
         SettingsRow(
-            icon = "\uD83D\uDEE1\uFE0F",
-            title = "Permissions",
-            subtitle = "${permissionMode.displayName} mode",
+            icon = Icons.Filled.Security,
+            title = stringResource(R.string.settings_permissions),
+            subtitle = stringResource(R.string.settings_permissions_subtitle, permissionMode.displayName),
             onClick = { onNavigate("permissions") },
         )
 
         // ── SYSTEM ──
-        SectionHeader("SYSTEM")
+        SectionHeader(stringResource(R.string.settings_section_system))
 
         SettingsRow(
-            icon = "\uD83D\uDCF1",
-            title = "Device",
-            subtitle = deviceName.ifBlank { "Configure device" },
+            icon = Icons.Filled.PhoneAndroid,
+            title = stringResource(R.string.settings_device),
+            subtitle = deviceName.ifBlank { stringResource(R.string.settings_configure_device) },
             onClick = { onNavigate("device") },
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingsRow(
-            icon = "\uD83D\uDCBE",
-            title = "Data & Storage",
-            subtitle = "Clear history",
+            icon = Icons.Filled.Storage,
+            title = stringResource(R.string.settings_data_storage),
+            subtitle = stringResource(R.string.settings_clear_history),
             onClick = { onNavigate("data") },
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingsRow(
-            icon = "\u2139\uFE0F",
-            title = "About",
+            icon = Icons.Filled.Info,
+            title = stringResource(R.string.settings_about),
             subtitle = "v${BuildConfig.VERSION_NAME}",
             onClick = { onNavigate("about") },
         )
@@ -307,7 +326,7 @@ private fun SectionHeader(title: String) {
 
 @Composable
 private fun SettingsRow(
-    icon: String,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
@@ -324,9 +343,11 @@ private fun SettingsRow(
             )
         },
         leadingContent = {
-            Text(
-                icon,
-                style = MaterialTheme.typography.titleLarge,
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
             )
         },
         trailingContent = {
@@ -475,9 +496,11 @@ private fun ProviderPage(
                         )
                     },
                     leadingContent = {
-                        Text(
-                            "\uD83D\uDFE2",
-                            style = MaterialTheme.typography.bodySmall,
+                        Icon(
+                            imageVector = Icons.Filled.Key,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
                         )
                     },
                     trailingContent = {
@@ -782,7 +805,12 @@ private fun ConnectorRow(
                 }
             },
             leadingContent = {
-                Text(connector.icon, style = MaterialTheme.typography.titleLarge)
+                Icon(
+                    imageVector = connectorIconFor(connector.icon),
+                    contentDescription = connector.name,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
             },
             trailingContent = {
                 Icon(
@@ -1118,21 +1146,23 @@ private fun AboutPage() {
     ) {
         Spacer(Modifier.height(48.dp))
 
-        Text(
-            "\uD83E\uDD16",
-            style = MaterialTheme.typography.displayLarge,
+        Icon(
+            imageVector = Icons.Filled.SmartToy,
+            contentDescription = null,
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.primary,
         )
 
         Spacer(Modifier.height(16.dp))
 
         Text(
-            "MobileClaw",
+            stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
         )
 
         Text(
-            "by Affiora",
+            stringResource(R.string.about_by_affiora),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1150,13 +1180,13 @@ private fun AboutPage() {
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "Android AI Agent",
+                    stringResource(R.string.about_android_agent),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "MobileClaw is an AI-powered agent that can control your Android device, automate tasks, and integrate with your favorite services.",
+                    stringResource(R.string.about_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1165,6 +1195,20 @@ private fun AboutPage() {
 
         Spacer(Modifier.height(24.dp))
     }
+}
+
+// ── Connector icon mapping ───────────────────────────────────────────────
+
+private fun connectorIconFor(iconName: String): ImageVector = when (iconName) {
+    "edit_note" -> Icons.Filled.EditNote
+    "code" -> Icons.Filled.Code
+    "chat" -> Icons.Filled.Chat
+    "music_note" -> Icons.Filled.MusicNote
+    "calendar_today" -> Icons.Filled.CalendarToday
+    "send" -> Icons.AutoMirrored.Filled.Send
+    "smart_toy" -> Icons.Filled.SmartToy
+    "email" -> Icons.Filled.Email
+    else -> Icons.Filled.Link
 }
 
 // ── Reusable components ─────────────────────────────────────────────────
