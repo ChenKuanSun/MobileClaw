@@ -25,6 +25,7 @@ import ai.affiora.mobileclaw.tools.ScreenCaptureTool
 import ai.affiora.mobileclaw.tools.SkillAuthorTool
 import ai.affiora.mobileclaw.tools.SmsTool
 import ai.affiora.mobileclaw.tools.SystemInfoTool
+import ai.affiora.mobileclaw.tools.TelegramTool
 import ai.affiora.mobileclaw.tools.UIAutomationTool
 import ai.affiora.mobileclaw.tools.VolumeTool
 import ai.affiora.mobileclaw.tools.WebBrowserTool
@@ -227,6 +228,15 @@ object ToolsModule {
 
     @Provides
     @Singleton
+    fun provideTelegramTool(
+        httpClient: HttpClient,
+        connectorManager: ConnectorManager,
+    ): TelegramTool {
+        return TelegramTool(httpClient, connectorManager)
+    }
+
+    @Provides
+    @Singleton
     fun provideToolRegistry(
         smsTool: SmsTool,
         callLogTool: CallLogTool,
@@ -252,6 +262,7 @@ object ToolsModule {
         scheduleTool: ScheduleTool,
         openAiTool: OpenAiTool,
         photoTool: PhotoTool,
+        telegramTool: TelegramTool,
     ): Map<String, AndroidTool> {
         val tools: List<AndroidTool> = listOf(
             smsTool,
@@ -278,6 +289,7 @@ object ToolsModule {
             scheduleTool,
             openAiTool,
             photoTool,
+            telegramTool,
         )
         return tools.associateBy { it.name }
     }

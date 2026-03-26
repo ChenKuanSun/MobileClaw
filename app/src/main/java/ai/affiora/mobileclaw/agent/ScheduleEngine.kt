@@ -35,6 +35,32 @@ class ScheduleEngine @Inject constructor(
         val skillAction: String,
     )
 
+    init {
+        loadFromPrefs()
+    }
+
+    private fun saveToPrefs() {
+        val json = scheduledItems.entries.joinToString(";") { (name, meta) ->
+            "${name}|${meta.intervalMinutes}|${meta.skillAction}"
+        }
+        context.getSharedPreferences("schedules", Context.MODE_PRIVATE)
+            .edit().putString("items", json).apply()
+    }
+
+    private fun loadFromPrefs() {
+        val raw = context.getSharedPreferences("schedules", Context.MODE_PRIVATE)
+            .getString("items", "") ?: return
+        raw.split(";").filter { it.isNotBlank() }.forEach { entry ->
+            val parts = entry.split("|", limit = 3)
+            if (parts.size == 3) {
+                scheduledItems[parts[0]] = ScheduleMetadata(
+                    intervalMinutes = parts[1].toLongOrNull() ?: 60L,
+                    skillAction = parts[2],
+                )
+            }
+        }
+    }
+
     fun scheduleRecurring(name: String, intervalMinutes: Long, skillAction: String) {
         val safeInterval = intervalMinutes.coerceAtLeast(MIN_INTERVAL_MINUTES)
         val workRequest = PeriodicWorkRequestBuilder<ScheduledAgentWorker>(
@@ -57,11 +83,13 @@ class ScheduleEngine @Inject constructor(
             intervalMinutes = safeInterval,
             skillAction = skillAction,
         )
+        saveToPrefs()
     }
 
     fun cancelSchedule(name: String) {
         workManager.cancelUniqueWork(uniqueWorkName(name))
         scheduledItems.remove(name)
+        saveToPrefs()
     }
 
     fun listSchedules(): List<ScheduleInfo> {
