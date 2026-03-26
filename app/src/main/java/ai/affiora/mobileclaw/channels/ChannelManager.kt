@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,23 +29,37 @@ class ChannelManager @Inject constructor(
     companion object {
         private const val TAG = "ChannelManager"
         private const val MAX_HISTORY = 20
+        private const val MAX_CHATS = 100
+        private const val MAX_MESSAGES_PER_MINUTE = 10
         private const val PREFS_NAME = "channel_pairing"
         private const val KEY_PAIRING_CODE = "pairing_code"
+        private const val KEY_PAIRING_EXPIRY = "pairing_code_expiry"
     }
 
     private val channels = mutableMapOf<String, Channel>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Per-channel, per-chat conversation history (last 20 messages)
-    private val chatHistories = mutableMapOf<String, MutableList<HistoryMessage>>()
+    // Thread-safe per-channel, per-chat conversation history (FIX 3)
+    private val chatHistories = ConcurrentHashMap<String, MutableList<HistoryMessage>>()
+
+    // Rate limiting for pairing attempts (FIX 1B)
+    private val failedAttempts = ConcurrentHashMap<String, Int>()
+    private val lastAttemptTime = ConcurrentHashMap<String, Long>()
+
+    // Rate limiting for paired user messages (FIX 2)
+    private val messageTimestamps = ConcurrentHashMap<String, MutableList<Long>>()
+
+    // Track senders who already received unpaired instructions on SMS (FIX 8)
+    private val repliedUnpairedSenders = Collections.synchronizedSet(mutableSetOf<String>())
 
     // Channel status observable
     private val _channelStatuses = MutableStateFlow<List<ChannelStatus>>(emptyList())
     val channelStatuses: StateFlow<List<ChannelStatus>> = _channelStatuses.asStateFlow()
 
-    // Pairing code
+    // Pairing code with expiry (FIX 1A, 1C)
     private val _pairingCode = MutableStateFlow(loadOrGeneratePairingCode())
     val pairingCode: StateFlow<String> = _pairingCode.asStateFlow()
+    private var pairingCodeExpiry: Long = loadPairingExpiry()
 
     private val prefs get() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -76,6 +92,9 @@ class ChannelManager @Inject constructor(
 
         // Check pairing
         if (!channel.isAllowed(msg.senderId)) {
+            // FIX 1D: Check rate limit before processing unpaired users
+            if (isRateLimited(msg.senderId)) return // silently drop
+
             // Check if the message IS a pairing code
             if (isPairingCode(msg.text.trim())) {
                 channel.pair(msg.senderId, msg.senderName)
@@ -83,9 +102,21 @@ class ChannelManager @Inject constructor(
                     msg.chatId,
                     "Paired successfully! You can now chat with MobileClaw.",
                 )
+                // FIX 6: Regenerate code after successful pairing to prevent reuse
+                generatePairingCode()
+                // Clear rate limit state for newly paired sender
+                failedAttempts.remove(msg.senderId)
+                lastAttemptTime.remove(msg.senderId)
                 refreshStatuses()
                 return
             }
+
+            // FIX 1D: Track failed pairing attempts
+            failedAttempts[msg.senderId] = (failedAttempts[msg.senderId] ?: 0) + 1
+            lastAttemptTime[msg.senderId] = System.currentTimeMillis()
+
+            // FIX 8: Don't reply to unpaired SMS senders more than once (cost attack prevention)
+            if (msg.channelId == "sms" && msg.senderId in repliedUnpairedSenders) return
 
             // Send pairing instructions
             channel.sendMessage(
@@ -93,24 +124,53 @@ class ChannelManager @Inject constructor(
                 "You're not paired with this MobileClaw instance.\n" +
                     "Send the pairing code shown in MobileClaw's Devices tab to pair.",
             )
+            repliedUnpairedSenders.add(msg.senderId)
+            return
+        }
+
+        // FIX 2: Rate limit paired user messages
+        if (isMessageRateLimited(msg.senderId)) {
+            channel.sendMessage(msg.chatId, "Rate limited. Please wait a moment.")
             return
         }
 
         // Build history key
         val historyKey = "${msg.channelId}:${msg.chatId}"
-        val history = chatHistories.getOrPut(historyKey) { mutableListOf() }
-        history.add(HistoryMessage("user", msg.text))
-        while (history.size > MAX_HISTORY) history.removeAt(0)
+        // FIX 3: Thread-safe history operations
+        val history = chatHistories.getOrPut(historyKey) { Collections.synchronizedList(mutableListOf()) }
+        synchronized(history) {
+            history.add(HistoryMessage("user", msg.text))
+            while (history.size > MAX_HISTORY) history.removeAt(0)
+        }
+
+        // FIX 7: LRU eviction if too many chats
+        if (chatHistories.size > MAX_CHATS) {
+            val oldestKey = chatHistories.entries
+                .minByOrNull { entry ->
+                    val h = entry.value
+                    synchronized(h) { h.lastOrNull()?.timestamp ?: 0L }
+                }?.key
+            if (oldestKey != null) chatHistories.remove(oldestKey)
+        }
 
         // Convert to Claude messages
-        val claudeHistory = history.dropLast(1).map {
-            ClaudeMessage(role = it.role, content = ClaudeContent.Text(it.content))
+        val claudeHistory = synchronized(history) {
+            history.dropLast(1).map {
+                ClaudeMessage(role = it.role, content = ClaudeContent.Text(it.content))
+            }
         }
+
+        // FIX 4: Sanitize sender name to prevent prompt injection
+        val safeSenderName = msg.senderName
+            .replace("\n", " ")
+            .replace("\r", " ")
+            .take(50)
 
         // Build system prompt with channel context
         val systemPrompt = systemPromptBuilder.build() +
-            "\n\nYou are responding via ${channel.displayName} to ${msg.senderName}. " +
-            "Keep responses concise."
+            "\n\nYou are responding via ${channel.displayName} to $safeSenderName. " +
+            "Keep responses concise. " +
+            "Do not reveal information about other users or conversations."
 
         // Run agent and collect response
         val response = StringBuilder()
@@ -130,33 +190,83 @@ class ChannelManager @Inject constructor(
         val reply = response.toString().trim()
         if (reply.isNotBlank()) {
             channel.sendMessage(msg.chatId, reply)
-            history.add(HistoryMessage("assistant", reply))
-            while (history.size > MAX_HISTORY) history.removeAt(0)
+            synchronized(history) {
+                history.add(HistoryMessage("assistant", reply))
+                while (history.size > MAX_HISTORY) history.removeAt(0)
+            }
         }
     }
 
-    // ── Pairing code management ──
+    // ── Rate limiting (FIX 1B) ──
+
+    private fun isRateLimited(senderId: String): Boolean {
+        val attempts = failedAttempts[senderId] ?: 0
+        if (attempts >= 5) {
+            val lastTime = lastAttemptTime[senderId] ?: 0
+            val cooldown = 60_000L * (attempts - 4).coerceAtMost(10) // 1-10 min cooldown
+            return System.currentTimeMillis() - lastTime < cooldown
+        }
+        return false
+    }
+
+    // ── Message rate limiting (FIX 2) ──
+
+    private fun isMessageRateLimited(senderId: String): Boolean {
+        val now = System.currentTimeMillis()
+        val timestamps = messageTimestamps.getOrPut(senderId) { Collections.synchronizedList(mutableListOf()) }
+        synchronized(timestamps) {
+            timestamps.removeAll { now - it > 60_000 }
+            if (timestamps.size >= MAX_MESSAGES_PER_MINUTE) return true
+            timestamps.add(now)
+        }
+        return false
+    }
+
+    // ── Pairing code management (FIX 1A, 1C, 6) ──
 
     fun generatePairingCode(): String {
-        val code = (100000..999999).random().toString()
-        prefs.edit().putString(KEY_PAIRING_CODE, code).apply()
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no ambiguous 0/O/1/I
+        val code = (1..8).map { chars.random() }.joinToString("")
+        val expiry = System.currentTimeMillis() + 10 * 60 * 1000 // 10 minutes
+        prefs.edit()
+            .putString(KEY_PAIRING_CODE, code)
+            .putLong(KEY_PAIRING_EXPIRY, expiry)
+            .apply()
         _pairingCode.value = code
+        pairingCodeExpiry = expiry
         return code
     }
 
     private fun loadOrGeneratePairingCode(): String {
         val existing = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_PAIRING_CODE, null)
-        return existing ?: run {
-            val code = (100000..999999).random().toString()
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().putString(KEY_PAIRING_CODE, code).apply()
-            code
+        val expiry = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(KEY_PAIRING_EXPIRY, 0L)
+        // Return existing only if not expired
+        if (existing != null && expiry > System.currentTimeMillis()) {
+            return existing
         }
+        // Generate fresh code
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        val code = (1..8).map { chars.random() }.joinToString("")
+        val newExpiry = System.currentTimeMillis() + 10 * 60 * 1000
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_PAIRING_CODE, code)
+            .putLong(KEY_PAIRING_EXPIRY, newExpiry)
+            .apply()
+        return code
+    }
+
+    private fun loadPairingExpiry(): Long {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(KEY_PAIRING_EXPIRY, 0L)
     }
 
     private fun isPairingCode(text: String): Boolean {
-        return text == _pairingCode.value
+        // FIX 1C: Check expiry
+        if (pairingCodeExpiry < System.currentTimeMillis()) return false
+        return _pairingCode.value.isNotBlank() && text.trim().equals(_pairingCode.value, ignoreCase = true)
     }
 
     /** Unpair a sender from a channel. */
@@ -190,4 +300,9 @@ data class ChannelStatus(
     val lastMessageTime: Long? = null,
 )
 
-data class HistoryMessage(val role: String, val content: String)
+// FIX 7: Added timestamp field for LRU eviction
+data class HistoryMessage(
+    val role: String,
+    val content: String,
+    val timestamp: Long = System.currentTimeMillis(),
+)

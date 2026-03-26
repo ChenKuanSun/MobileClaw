@@ -5,6 +5,8 @@ import android.util.Log
 import ai.affiora.mobileclaw.tools.ClawNotificationListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
@@ -34,6 +36,7 @@ class NotificationChannel(
         "com.facebook.orca",
     )
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pairedSenders = mutableSetOf<String>()
 
     companion object {
@@ -51,7 +54,7 @@ class NotificationChannel(
 
         ClawNotificationListener.onNotificationCallback = { pkg, title, text, time ->
             if (pkg in monitoredApps && text != null) {
-                CoroutineScope(Dispatchers.IO).launch {
+                scope.launch {
                     channelManager.onMessageReceived(
                         IncomingMessage(
                             channelId = "notifications",
@@ -69,6 +72,7 @@ class NotificationChannel(
     }
 
     override fun stop() {
+        scope.cancel()
         ClawNotificationListener.onNotificationCallback = null
         isRunning = false
     }

@@ -13,6 +13,8 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class SmsChannel(
@@ -27,6 +29,7 @@ class SmsChannel(
     // Injected after construction to break circular dependency
     lateinit var channelManager: ChannelManager
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pairedNumbers = mutableSetOf<String>()
     private var receiver: BroadcastReceiver? = null
 
@@ -57,7 +60,7 @@ class SmsChannel(
                     val sender = sms.originatingAddress ?: continue
                     val text = sms.messageBody ?: continue
 
-                    CoroutineScope(Dispatchers.IO).launch {
+                    scope.launch {
                         channelManager.onMessageReceived(
                             IncomingMessage(
                                 channelId = "sms",
@@ -84,6 +87,7 @@ class SmsChannel(
     }
 
     override fun stop() {
+        scope.cancel()
         receiver?.let {
             try {
                 context.unregisterReceiver(it)
