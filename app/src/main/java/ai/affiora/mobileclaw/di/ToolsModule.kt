@@ -104,8 +104,12 @@ object ToolsModule {
 
     @Provides
     @Singleton
-    fun provideSkillAuthorTool(@ApplicationContext context: Context): SkillAuthorTool {
-        return SkillAuthorTool(context)
+    fun provideSkillAuthorTool(
+        @ApplicationContext context: Context,
+        userPreferences: UserPreferences,
+        skillInstaller: ai.affiora.mobileclaw.skills.SkillInstaller,
+    ): SkillAuthorTool {
+        return SkillAuthorTool(context, userPreferences, skillInstaller)
     }
 
     @Provides

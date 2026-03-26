@@ -110,12 +110,15 @@ class ChatViewModel @Inject constructor(
     private var agentJob: Job? = null
     private var dbCollectionJob: Job? = null
 
-    /** Queue of messages to send after current processing completes. */
-    private val messageQueue = mutableListOf<String>()
+    /** A queued message with optional attachment info. */
+    private data class QueuedMessage(
+        val text: String,
+        val attachmentUri: Uri? = null,
+        val attachmentMimeType: String? = null,
+    )
 
-    /** Pending attachment to send with the next queued message. */
-    private var pendingAttachmentUri: Uri? = null
-    private var pendingAttachmentMimeType: String? = null
+    /** Queue of messages to send after current processing completes. */
+    private val messageQueue = mutableListOf<QueuedMessage>()
 
     /** ID of the message currently being streamed. */
     private var streamingMessageId: String? = null
@@ -128,6 +131,9 @@ class ChatViewModel @Inject constructor(
 
     /** ID of the assistant message hosting tool activity markers. */
     private var toolHostMessageId: String? = null
+
+    /** ID of the most recent assistant message (for RawAssistantTurn targeting). */
+    private var lastAssistantMessageId: String? = null
 
     /** Current thinking level: off, low, medium, high */
     private var thinkingLevel: String = "off"
@@ -145,6 +151,7 @@ class ChatViewModel @Inject constructor(
         streamingText.clear()
         currentToolActivities.clear()
         toolHostMessageId = null
+        lastAssistantMessageId = null
         dbCollectionJob?.cancel()
         dbCollectionJob = chatMessageDao.getMessagesByConversation(conversationId)
             .onEach { entities ->
@@ -169,7 +176,7 @@ class ChatViewModel @Inject constructor(
 
         if (_isProcessing.value) {
             // Queue the message
-            messageQueue.add(text)
+            messageQueue.add(QueuedMessage(text))
             insertSystemMessage("Message queued (#${messageQueue.size}). Will send after current task.")
             return
         }
@@ -192,11 +199,9 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessageWithAttachment(text: String, uri: Uri, mimeType: String) {
         if (_isProcessing.value) {
-            // Queue the attachment message instead of rejecting it
-            pendingAttachmentUri = uri
-            pendingAttachmentMimeType = mimeType
+            // Queue the attachment message with its attachment info
             val displayText = if (text.isBlank()) "[Attachment]" else text
-            messageQueue.add(displayText)
+            messageQueue.add(QueuedMessage(displayText, attachmentUri = uri, attachmentMimeType = mimeType))
             insertSystemMessage("Attachment queued (#${messageQueue.size}). Will send after current task.")
             return
         }
@@ -353,8 +358,23 @@ class ChatViewModel @Inject constructor(
         _isProcessing.value = false
         _connectionStatus.value = ConnectionStatus.CONNECTED
         _isThinking.value = false
+        _pendingConfirmation.value = null
+
+        // Append [cancelled] to the incomplete streaming message so the user sees what was generated
+        val incompleteId = streamingMessageId ?: toolHostMessageId
+        if (incompleteId != null) {
+            viewModelScope.launch {
+                val existing = chatMessageDao.getMessageById(incompleteId)
+                if (existing != null) {
+                    chatMessageDao.update(existing.copy(content = existing.content + " [cancelled]"))
+                }
+            }
+        }
+
         streamingMessageId = null
         streamingText.clear()
+        currentToolActivities.clear()
+        toolHostMessageId = null
         insertSystemMessage("Agent run cancelled.")
     }
 
@@ -509,6 +529,7 @@ class ChatViewModel @Inject constructor(
                 appendLine("4. Add triggers (keywords that should activate this skill)")
                 appendLine("5. If something is impossible on Android, note it clearly")
                 appendLine("6. Use the skills_author tool to create the adapted skill")
+                appendLine("7. After creating the skill, tell the user the skill ID and confirm it was auto-enabled")
                 appendLine()
                 appendLine("Create the adapted skill now using the skills_author tool.")
             }
@@ -571,6 +592,7 @@ class ChatViewModel @Inject constructor(
         streamingText.clear()
         currentToolActivities.clear()
         toolHostMessageId = null
+        lastAssistantMessageId = null
 
         agentJob = viewModelScope.launch {
             try {
@@ -602,14 +624,10 @@ class ChatViewModel @Inject constructor(
                 // Process queued messages
                 if (messageQueue.isNotEmpty()) {
                     val next = messageQueue.removeAt(0)
-                    val attachUri = pendingAttachmentUri
-                    val attachMime = pendingAttachmentMimeType
-                    if (attachUri != null && attachMime != null) {
-                        pendingAttachmentUri = null
-                        pendingAttachmentMimeType = null
-                        sendMessageWithAttachment(next, attachUri, attachMime)
+                    if (next.attachmentUri != null && next.attachmentMimeType != null) {
+                        sendMessageWithAttachment(next.text, next.attachmentUri, next.attachmentMimeType)
                     } else {
-                        sendMessage(next)
+                        sendMessage(next.text)
                     }
                 }
             }
@@ -629,6 +647,7 @@ class ChatViewModel @Inject constructor(
         streamingText.clear()
         currentToolActivities.clear()
         toolHostMessageId = null
+        lastAssistantMessageId = null
 
         agentJob = viewModelScope.launch {
             try {
@@ -665,7 +684,11 @@ class ChatViewModel @Inject constructor(
 
                 if (messageQueue.isNotEmpty()) {
                     val next = messageQueue.removeAt(0)
-                    sendMessage(next)
+                    if (next.attachmentUri != null && next.attachmentMimeType != null) {
+                        sendMessageWithAttachment(next.text, next.attachmentUri, next.attachmentMimeType)
+                    } else {
+                        sendMessage(next.text)
+                    }
                 }
             }
         }
@@ -726,6 +749,7 @@ class ChatViewModel @Inject constructor(
                     if (hostId != null) {
                         // Reuse the tool host message — append streaming text after tool markers
                         streamingMessageId = hostId
+                        lastAssistantMessageId = hostId
                         val existing = chatMessageDao.getMessageById(hostId)
                         if (existing != null) {
                             val toolMarkers = currentToolActivities.joinToString("\n") { it.toMarker() }
@@ -734,6 +758,7 @@ class ChatViewModel @Inject constructor(
                     } else {
                         val id = UUID.randomUUID().toString()
                         streamingMessageId = id
+                        lastAssistantMessageId = id
                         val message = ChatMessage(
                             id = id,
                             role = MessageRole.ASSISTANT,
@@ -799,8 +824,10 @@ class ChatViewModel @Inject constructor(
                     }
                     // No streaming, no tools — insert fresh
                     else -> {
+                        val id = UUID.randomUUID().toString()
+                        lastAssistantMessageId = id
                         val message = ChatMessage(
-                            id = UUID.randomUUID().toString(),
+                            id = id,
                             role = MessageRole.ASSISTANT,
                             content = finalContent,
                             timestamp = System.currentTimeMillis(),
@@ -837,6 +864,7 @@ class ChatViewModel @Inject constructor(
                     // Create a new assistant message to hold tool activities
                     val id = UUID.randomUUID().toString()
                     toolHostMessageId = id
+                    lastAssistantMessageId = id
                     val content = currentToolActivities.joinToString("\n") { it.toMarker() }
                     val message = ChatMessage(
                         id = id,
@@ -887,13 +915,17 @@ class ChatViewModel @Inject constructor(
             }
 
             is AgentEvent.RawAssistantTurn -> {
-                // Update the last assistant message with full Claude JSON for history reconstruction
-                val lastMsg = _messages.value.lastOrNull { it.role == MessageRole.ASSISTANT }
-                if (lastMsg != null) {
-                    val updated = lastMsg.toEntity().copy(
-                        claudeMessageJson = json.encodeToString(ClaudeMessage.serializer(), event.message),
-                    )
-                    chatMessageDao.update(updated)
+                // Update the known assistant message by ID with full Claude JSON for history reconstruction
+                val targetId = lastAssistantMessageId
+                if (targetId != null) {
+                    val existing = chatMessageDao.getMessageById(targetId)
+                    if (existing != null) {
+                        chatMessageDao.update(
+                            existing.copy(
+                                claudeMessageJson = json.encodeToString(ClaudeMessage.serializer(), event.message),
+                            )
+                        )
+                    }
                 }
             }
 

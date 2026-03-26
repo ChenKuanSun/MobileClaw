@@ -58,6 +58,10 @@ class SettingsViewModel @Inject constructor(
 
     val allowedTools: StateFlow<Set<String>> = permissionManager.allowedTools
 
+    /** True when no providers have a configured API key. */
+    private val _noKeysConfigured = MutableStateFlow(false)
+    val noKeysConfigured: StateFlow<Boolean> = _noKeysConfigured.asStateFlow()
+
     private val _clearHistoryCompleted = MutableStateFlow(false)
     val clearHistoryCompleted: StateFlow<Boolean> = _clearHistoryCompleted.asStateFlow()
 
@@ -90,6 +94,7 @@ class SettingsViewModel @Inject constructor(
                 userPreferences.setSelectedModel(provider.models.first().id)
             }
             _providerTokens.value = loadProviderTokens()
+            _noKeysConfigured.value = false
         }
     }
 
@@ -106,7 +111,9 @@ class SettingsViewModel @Inject constructor(
                     userPreferences.setSelectedModel(fallback.provider.models.first().id)
                 }
             }
-            _providerTokens.value = loadProviderTokens()
+            val updated = loadProviderTokens()
+            _providerTokens.value = updated
+            _noKeysConfigured.value = updated.none { it.hasToken }
         }
     }
 

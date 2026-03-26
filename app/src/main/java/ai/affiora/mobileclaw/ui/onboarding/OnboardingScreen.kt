@@ -1,6 +1,10 @@
 package ai.affiora.mobileclaw.ui.onboarding
 
 import ai.affiora.mobileclaw.agent.AiProvider
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -23,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
@@ -350,30 +355,38 @@ private data class PermissionInfo(
     val name: String,
     val description: String,
     val icon: ImageVector,
+    val permission: String,
 )
 
-private val requiredPermissions = listOf(
-    PermissionInfo(
-        name = "Phone",
-        description = "Make and manage phone calls on your behalf",
-        icon = Icons.Default.Phone,
-    ),
-    PermissionInfo(
-        name = "SMS",
-        description = "Send and read text messages",
-        icon = Icons.Default.Sms,
-    ),
-    PermissionInfo(
-        name = "Notifications",
-        description = "Show task progress and alerts",
-        icon = Icons.Default.Notifications,
-    ),
-)
+private val dangerousPermissions: List<PermissionInfo> = buildList {
+    add(PermissionInfo("SMS (Read)", "Read text messages", Icons.Default.Sms, Manifest.permission.READ_SMS))
+    add(PermissionInfo("SMS (Send)", "Send text messages", Icons.Default.Sms, Manifest.permission.SEND_SMS))
+    add(PermissionInfo("Call Log", "Read call history", Icons.Default.Phone, Manifest.permission.READ_CALL_LOG))
+    add(PermissionInfo("Contacts", "Access your contacts", Icons.Default.Phone, Manifest.permission.READ_CONTACTS))
+    add(PermissionInfo("Calendar (Read)", "Read calendar events", Icons.Default.Notifications, Manifest.permission.READ_CALENDAR))
+    add(PermissionInfo("Calendar (Write)", "Create calendar events", Icons.Default.Notifications, Manifest.permission.WRITE_CALENDAR))
+    add(PermissionInfo("Camera", "Take photos and videos", Icons.Default.Phone, Manifest.permission.CAMERA))
+    add(PermissionInfo("Microphone", "Record audio", Icons.Default.Phone, Manifest.permission.RECORD_AUDIO))
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        add(PermissionInfo("Notifications", "Show task progress and alerts", Icons.Default.Notifications, Manifest.permission.POST_NOTIFICATIONS))
+    }
+}
 
 @Composable
 private fun PermissionsPage(
     onGrantPermissions: () -> Unit,
 ) {
+    // Track grant results per permission
+    var permissionResults by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    var hasRequested by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { results ->
+        permissionResults = results
+        hasRequested = true
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -399,30 +412,61 @@ private fun PermissionsPage(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        requiredPermissions.forEach { permission ->
-            PermissionRow(permission = permission)
+        dangerousPermissions.forEach { permission ->
+            val granted = permissionResults[permission.permission]
+            PermissionRow(permission = permission, granted = granted)
             Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        if (hasRequested) {
+            val grantedCount = permissionResults.count { it.value }
+            val deniedCount = permissionResults.count { !it.value }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "$grantedCount granted, $deniedCount denied. You can grant denied permissions later in Settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Button(
+        if (!hasRequested) {
+            Button(
+                onClick = {
+                    val perms = dangerousPermissions.map { it.permission }.toTypedArray()
+                    permissionLauncher.launch(perms)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            ) {
+                Text("Grant Permissions")
+            }
+        }
+
+        OutlinedButton(
             onClick = onGrantPermissions,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 32.dp),
         ) {
-            Text("Grant Permissions")
+            Text(if (hasRequested) "Continue" else "Skip for Now")
         }
     }
 }
 
 @Composable
-private fun PermissionRow(permission: PermissionInfo) {
+private fun PermissionRow(permission: PermissionInfo, granted: Boolean?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = when (granted) {
+                true -> MaterialTheme.colorScheme.secondaryContainer
+                false -> MaterialTheme.colorScheme.errorContainer
+                null -> MaterialTheme.colorScheme.surfaceVariant
+            },
         ),
     ) {
         Row(
@@ -447,6 +491,14 @@ private fun PermissionRow(permission: PermissionInfo) {
                     text = permission.description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (granted != null) {
+                Icon(
+                    imageVector = if (granted) Icons.Default.Check else Icons.Default.Close,
+                    contentDescription = if (granted) "Granted" else "Denied",
+                    tint = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

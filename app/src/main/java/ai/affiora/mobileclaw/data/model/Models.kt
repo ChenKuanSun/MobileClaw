@@ -88,8 +88,9 @@ enum class ActionType {
  * Serialized as special markers inside message content so no DB schema change is needed.
  *
  * Format in content:
- *   ‹tool:toolName|input|status|result›
+ *   \u0000\u001Ftool:toolName|input|status|result\u001F\u0000
  *
+ * Uses NULL + Unit Separator control characters that will never appear in AI text output.
  * status: "pending", "success", "error"
  */
 @Serializable
@@ -107,20 +108,25 @@ data class ToolActivity(
             isError -> "error"
             else -> "success"
         }
-        val safeInput = input.replace("›", ">").replace("‹", "<").replace("|", "\\|")
-        val safeResult = (result ?: "").replace("›", ">").replace("‹", "<").replace("|", "\\|")
-        return "‹tool:$toolName|$safeInput|$status|$safeResult›"
+        val safeInput = input.replace(MARKER_END, "").replace("|", "\\|")
+        val safeResult = (result ?: "").replace(MARKER_END, "").replace("|", "\\|")
+        return "${MARKER_START}$toolName|$safeInput|$status|$safeResult$MARKER_END"
     }
 
     companion object {
-        private val MARKER_REGEX = Regex("‹tool:([^|]+)\\|([^|]*)\\|([^|]*)\\|([^›]*)›")
+        private const val MARKER_START = "\u0000\u001Ftool:"  // NULL + Unit Separator
+        private const val MARKER_END = "\u001F\u0000"         // Unit Separator + NULL
+
+        private val MARKER_REGEX = Regex(
+            "\u0000\u001Ftool:([^|]+)\\|([^|]*)\\|([^|]*)\\|([^\u001F]*)\u001F\u0000"
+        )
 
         fun parseMarkers(text: String): List<Pair<IntRange, ToolActivity>> {
             return MARKER_REGEX.findAll(text).map { match ->
                 val toolName = match.groupValues[1]
-                val input = match.groupValues[2].replace("\\|", "|").replace("<", "‹").replace(">", "›")
+                val input = match.groupValues[2].replace("\\|", "|")
                 val status = match.groupValues[3]
-                val result = match.groupValues[4].replace("\\|", "|").replace("<", "‹").replace(">", "›")
+                val result = match.groupValues[4].replace("\\|", "|")
                     .ifEmpty { null }
                 val activity = ToolActivity(
                     toolName = toolName,

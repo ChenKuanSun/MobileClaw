@@ -17,7 +17,7 @@ class ToolActivityTest {
             isPending = true,
         )
         val marker = activity.toMarker()
-        assertThat(marker).isEqualTo("‹tool:sms|send hello|pending|›")
+        assertThat(marker).isEqualTo("\u0000\u001Ftool:sms|send hello|pending|\u001F\u0000")
     }
 
     @Test
@@ -30,7 +30,7 @@ class ToolActivityTest {
             isPending = false,
         )
         val marker = activity.toMarker()
-        assertThat(marker).isEqualTo("‹tool:search|query=test|success|found 3 results›")
+        assertThat(marker).isEqualTo("\u0000\u001Ftool:search|query=test|success|found 3 results\u001F\u0000")
     }
 
     @Test
@@ -43,7 +43,7 @@ class ToolActivityTest {
             isPending = false,
         )
         val marker = activity.toMarker()
-        assertThat(marker).isEqualTo("‹tool:http|GET https://example.com|error|timeout›")
+        assertThat(marker).isEqualTo("\u0000\u001Ftool:http|GET https://example.com|error|timeout\u001F\u0000")
     }
 
     @Test
@@ -51,13 +51,12 @@ class ToolActivityTest {
         val activity = ToolActivity(
             toolName = "test",
             input = "has|pipe",
-            result = "has‹angle›brackets",
+            result = "some result",
             isError = false,
             isPending = false,
         )
         val marker = activity.toMarker()
         assertThat(marker).contains("has\\|pipe")
-        assertThat(marker).contains("has<angle>brackets")
     }
 
     @Test

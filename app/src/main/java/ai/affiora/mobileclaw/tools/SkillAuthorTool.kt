@@ -1,7 +1,10 @@
 package ai.affiora.mobileclaw.tools
 
 import android.content.Context
+import ai.affiora.mobileclaw.data.prefs.UserPreferences
+import ai.affiora.mobileclaw.skills.SkillInstaller
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -14,6 +17,8 @@ import java.util.UUID
 
 class SkillAuthorTool(
     private val context: Context,
+    private val userPreferences: UserPreferences,
+    private val skillInstaller: SkillInstaller,
 ) : AndroidTool {
 
     companion object {
@@ -115,7 +120,7 @@ class SkillAuthorTool(
         return ToolResult.Success(result.toString())
     }
 
-    private fun executeCreate(params: Map<String, JsonElement>): ToolResult {
+    private suspend fun executeCreate(params: Map<String, JsonElement>): ToolResult {
         val skillId = params["skill_id"]?.jsonPrimitive?.content
             ?: return ToolResult.Error("Missing required parameter: skill_id")
         val content = params["content"]?.jsonPrimitive?.content
@@ -126,11 +131,24 @@ class SkillAuthorTool(
             return ToolResult.Error("Skill already exists: $skillId. Use 'update' to modify it.")
         }
 
+        // FIX 7: Security scan the content before saving
+        val scanResult = skillInstaller.scanContent(content)
+        if (!scanResult.safe) {
+            return ToolResult.Error(
+                "Skill content blocked by security scanner: ${scanResult.blockedReasons.joinToString("; ")}"
+            )
+        }
+
         val confirmed = params["__confirmed"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() == true
         if (confirmed) {
             skillDir.mkdirs()
             File(skillDir, SKILL_FILE).writeText(content)
-            return ToolResult.Success("Skill '$skillId' created successfully.")
+
+            // FIX 6: Auto-enable the newly created skill
+            val currentActive = userPreferences.activeSkillIds.first()
+            userPreferences.setActiveSkillIds(currentActive + skillId)
+
+            return ToolResult.Success("Skill '$skillId' created and auto-enabled successfully.")
         }
 
         val meta = extractFrontmatter(content)
@@ -161,6 +179,14 @@ class SkillAuthorTool(
         val skillFile = File(getUserSkillsDir(), "$skillId/$SKILL_FILE")
         if (!skillFile.exists()) {
             return ToolResult.Error("Skill not found: $skillId. Use 'create' to make a new skill.")
+        }
+
+        // FIX 7: Security scan updated content before saving
+        val scanResult = skillInstaller.scanContent(content)
+        if (!scanResult.safe) {
+            return ToolResult.Error(
+                "Skill content blocked by security scanner: ${scanResult.blockedReasons.joinToString("; ")}"
+            )
         }
 
         val confirmed = params["__confirmed"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() == true
