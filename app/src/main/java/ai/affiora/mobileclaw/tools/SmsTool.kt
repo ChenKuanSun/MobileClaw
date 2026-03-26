@@ -88,7 +88,7 @@ class SmsTool(
     private fun executeSearch(params: Map<String, JsonElement>): ToolResult {
         val since = params["since"]?.jsonPrimitive?.long
         val from = params["from"]?.jsonPrimitive?.content
-        val limit = (params["limit"]?.jsonPrimitive?.int ?: 20).coerceIn(1, 100)
+        val limit = params["limit"]?.jsonPrimitive?.int ?: 20
 
         val resolver: ContentResolver = context.contentResolver
 

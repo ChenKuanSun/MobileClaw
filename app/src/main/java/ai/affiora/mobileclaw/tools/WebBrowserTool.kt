@@ -172,11 +172,11 @@ class WebBrowserTool(
         val url = params["url"]?.jsonPrimitive?.content
             ?: return ToolResult.Error("Missing required parameter: url")
 
-        // FIX 3: Validate URI scheme — only allow http/https
+        // Block dangerous URI schemes that can access local data
         val uri = Uri.parse(url)
-        val allowedSchemes = setOf("http", "https")
-        if (uri.scheme?.lowercase() !in allowedSchemes) {
-            return ToolResult.Error("Only http/https URLs are allowed. Got: ${uri.scheme}")
+        val blockedSchemes = setOf("content", "file", "javascript")
+        if (uri.scheme?.lowercase() in blockedSchemes) {
+            return ToolResult.Error("URI scheme '${uri.scheme}' is not allowed for security reasons.")
         }
 
         // SSRF protection: block internal network addresses (same as open_url)
