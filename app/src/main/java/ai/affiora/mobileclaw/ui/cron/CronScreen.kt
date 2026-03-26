@@ -119,7 +119,7 @@ fun CronScreen(
                 onNameChange = { viewModel.updateDialogName(it) },
                 onPromptChange = { viewModel.updateDialogPrompt(it) },
                 onIntervalChange = { viewModel.updateDialogInterval(it) },
-                onCustomHoursChange = { viewModel.updateDialogCustomHours(it) },
+                onCustomHoursChange = { viewModel.updateDialogCustomMinutes(it) },
             )
         }
     }
@@ -247,7 +247,7 @@ private fun ScheduleItemCard(
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = formatInterval(schedule.intervalHours),
+                        text = formatInterval(schedule.intervalMinutes),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -344,7 +344,7 @@ private fun AddEditScheduleDialog(
                 if (state.dialogInterval == ScheduleInterval.CUSTOM) {
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = state.dialogCustomHours,
+                        value = state.dialogCustomMinutes,
                         onValueChange = { value ->
                             if (value.all { it.isDigit() } && value.length <= 4) {
                                 onCustomHoursChange(value)

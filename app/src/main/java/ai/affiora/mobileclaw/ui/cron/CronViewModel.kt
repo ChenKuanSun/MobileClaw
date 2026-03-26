@@ -13,12 +13,12 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
-enum class ScheduleInterval(val label: String, val hours: Long) {
-    HOURLY("Every hour", 1),
-    EVERY_4_HOURS("Every 4 hours", 4),
-    EVERY_8_HOURS("Every 8 hours", 8),
-    DAILY("Daily", 24),
-    WEEKLY("Weekly", 168),
+enum class ScheduleInterval(val label: String, val minutes: Long) {
+    EVERY_15_MIN("Every 15 min", 15),
+    EVERY_30_MIN("Every 30 min", 30),
+    HOURLY("Every hour", 60),
+    EVERY_4_HOURS("Every 4 hours", 240),
+    DAILY("Daily", 1440),
     CUSTOM("Custom", 0),
 }
 
@@ -29,7 +29,7 @@ data class CronUiState(
     val dialogName: String = "",
     val dialogPrompt: String = "",
     val dialogInterval: ScheduleInterval = ScheduleInterval.DAILY,
-    val dialogCustomHours: String = "24",
+    val dialogCustomMinutes: String = "60",
     val dialogHour: Int = 9,
     val dialogMinute: Int = 0,
 )
@@ -37,7 +37,7 @@ data class CronUiState(
 data class ScheduleItemUi(
     val name: String,
     val prompt: String,
-    val intervalHours: Long,
+    val intervalMinutes: Long,
     val nextRunTime: Long,
     val enabled: Boolean,
 )
@@ -62,7 +62,7 @@ class CronViewModel @Inject constructor(
             ScheduleItemUi(
                 name = info.name,
                 prompt = info.skillAction,
-                intervalHours = info.intervalHours,
+                intervalMinutes = info.intervalMinutes,
                 nextRunTime = info.nextRunTime,
                 enabled = info.name !in disabledSchedules,
             )
@@ -78,7 +78,7 @@ class CronViewModel @Inject constructor(
                 dialogName = "",
                 dialogPrompt = "",
                 dialogInterval = ScheduleInterval.DAILY,
-                dialogCustomHours = "24",
+                dialogCustomMinutes = "24",
                 dialogHour = 9,
                 dialogMinute = 0,
             )
@@ -86,7 +86,7 @@ class CronViewModel @Inject constructor(
     }
 
     fun showEditDialog(schedule: ScheduleItemUi) {
-        val interval = ScheduleInterval.entries.find { it.hours == schedule.intervalHours }
+        val interval = ScheduleInterval.entries.find { it.minutes == schedule.intervalMinutes }
             ?: ScheduleInterval.CUSTOM
         _uiState.update {
             it.copy(
@@ -95,10 +95,10 @@ class CronViewModel @Inject constructor(
                 dialogName = schedule.name,
                 dialogPrompt = schedule.prompt,
                 dialogInterval = interval,
-                dialogCustomHours = if (interval == ScheduleInterval.CUSTOM) {
-                    schedule.intervalHours.toString()
+                dialogCustomMinutes = if (interval == ScheduleInterval.CUSTOM) {
+                    schedule.intervalMinutes.toString()
                 } else {
-                    schedule.intervalHours.toString()
+                    schedule.intervalMinutes.toString()
                 },
                 dialogHour = 9,
                 dialogMinute = 0,
@@ -122,8 +122,8 @@ class CronViewModel @Inject constructor(
         _uiState.update { it.copy(dialogInterval = interval) }
     }
 
-    fun updateDialogCustomHours(hours: String) {
-        _uiState.update { it.copy(dialogCustomHours = hours) }
+    fun updateDialogCustomMinutes(hours: String) {
+        _uiState.update { it.copy(dialogCustomMinutes = hours) }
     }
 
     fun updateDialogHour(hour: Int) {
@@ -141,9 +141,9 @@ class CronViewModel @Inject constructor(
         if (name.isBlank() || prompt.isBlank()) return
 
         val hours = when (state.dialogInterval) {
-            ScheduleInterval.CUSTOM -> state.dialogCustomHours.toLongOrNull() ?: 24L
-            else -> state.dialogInterval.hours
-        }.coerceAtLeast(1L)
+            ScheduleInterval.CUSTOM -> state.dialogCustomMinutes.toLongOrNull() ?: 60L
+            else -> state.dialogInterval.minutes
+        }.coerceAtLeast(15L)
 
         // If editing, cancel the old schedule first
         val editing = state.editingSchedule
@@ -170,7 +170,7 @@ class CronViewModel @Inject constructor(
             // Re-enable: find the schedule info and re-register
             val schedule = _uiState.value.schedules.find { it.name == name } ?: return
             disabledSchedules.remove(name)
-            scheduleEngine.scheduleRecurring(name, schedule.intervalHours, schedule.prompt)
+            scheduleEngine.scheduleRecurring(name, schedule.intervalMinutes, schedule.prompt)
         } else {
             // Disable: cancel from WorkManager but keep in our list
             disabledSchedules.add(name)

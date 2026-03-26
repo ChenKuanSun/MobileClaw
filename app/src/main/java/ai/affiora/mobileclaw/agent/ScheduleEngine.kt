@@ -15,7 +15,7 @@ import javax.inject.Singleton
 
 data class ScheduleInfo(
     val name: String,
-    val intervalHours: Long,
+    val intervalMinutes: Long,
     val skillAction: String,
     val nextRunTime: Long,
 )
@@ -31,13 +31,14 @@ class ScheduleEngine @Inject constructor(
     private val scheduledItems = mutableMapOf<String, ScheduleMetadata>()
 
     private data class ScheduleMetadata(
-        val intervalHours: Long,
+        val intervalMinutes: Long,
         val skillAction: String,
     )
 
-    fun scheduleRecurring(name: String, intervalHours: Long, skillAction: String) {
+    fun scheduleRecurring(name: String, intervalMinutes: Long, skillAction: String) {
+        val safeInterval = intervalMinutes.coerceAtLeast(MIN_INTERVAL_MINUTES)
         val workRequest = PeriodicWorkRequestBuilder<ScheduledAgentWorker>(
-            intervalHours, TimeUnit.HOURS,
+            safeInterval, TimeUnit.MINUTES,
         ).setInputData(
             workDataOf(
                 KEY_SCHEDULE_NAME to name,
@@ -53,7 +54,7 @@ class ScheduleEngine @Inject constructor(
         )
 
         scheduledItems[name] = ScheduleMetadata(
-            intervalHours = intervalHours,
+            intervalMinutes = safeInterval,
             skillAction = skillAction,
         )
     }
@@ -68,7 +69,7 @@ class ScheduleEngine @Inject constructor(
             val nextRunTime = getNextRunTime(name)
             ScheduleInfo(
                 name = name,
-                intervalHours = metadata.intervalHours,
+                intervalMinutes = metadata.intervalMinutes,
                 skillAction = metadata.skillAction,
                 nextRunTime = nextRunTime,
             )
@@ -94,7 +95,8 @@ class ScheduleEngine @Inject constructor(
     private fun tagForName(name: String): String = "$TAG_PREFIX$name"
 
     companion object {
-        private const val WORK_PREFIX = "androidclaw_schedule_"
+        const val MIN_INTERVAL_MINUTES = 15L
+        private const val WORK_PREFIX = "mobileclaw_schedule_"
         private const val TAG_PREFIX = "schedule_"
         const val KEY_SCHEDULE_NAME = "schedule_name"
         const val KEY_SKILL_ACTION = "skill_action"

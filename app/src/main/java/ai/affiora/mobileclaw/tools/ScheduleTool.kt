@@ -42,9 +42,9 @@ class ScheduleTool(
                 put("type", JsonPrimitive("string"))
                 put("description", JsonPrimitive("The prompt/action to execute on schedule (required for 'create')."))
             })
-            put("interval_hours", buildJsonObject {
-                put("type", JsonPrimitive("number"))
-                put("description", JsonPrimitive("Repeat interval in hours (required for 'create', minimum 1)."))
+            put("interval_minutes", buildJsonObject {
+                put("type", JsonPrimitive("integer"))
+                put("description", JsonPrimitive("Repeat interval in minutes (required for 'create', minimum 15)."))
             })
             put("enabled", buildJsonObject {
                 put("type", JsonPrimitive("boolean"))
@@ -72,19 +72,21 @@ class ScheduleTool(
             ?: return ToolResult.Error("Missing required parameter: name")
         val prompt = params["prompt"]?.jsonPrimitive?.content
             ?: return ToolResult.Error("Missing required parameter: prompt")
-        val intervalHours = params["interval_hours"]?.jsonPrimitive?.content?.toLongOrNull()
-            ?: return ToolResult.Error("Missing required parameter: interval_hours (must be a number)")
+        val intervalMinutes = params["interval_minutes"]?.jsonPrimitive?.content?.toLongOrNull()
+            ?: return ToolResult.Error("Missing required parameter: interval_minutes (must be a number)")
 
-        if (intervalHours < 1) {
-            return ToolResult.Error("interval_hours must be at least 1")
+        if (intervalMinutes < 15) {
+            return ToolResult.Error("interval_minutes must be at least 15 (Android WorkManager minimum)")
         }
+
+        val displayInterval = if (intervalMinutes >= 60) "${intervalMinutes / 60}h ${intervalMinutes % 60}m" else "${intervalMinutes}m"
 
         if (!confirmed) {
             val preview = buildString {
                 appendLine("Create scheduled task:")
                 appendLine("  Name: $name")
                 appendLine("  Action: $prompt")
-                appendLine("  Interval: every $intervalHours hour(s)")
+                appendLine("  Interval: every $displayInterval")
             }
             return ToolResult.NeedsConfirmation(
                 preview = preview.trim(),
@@ -93,8 +95,8 @@ class ScheduleTool(
         }
 
         return try {
-            scheduleEngine.scheduleRecurring(name, intervalHours, prompt)
-            ToolResult.Success("Scheduled '$name' to run every $intervalHours hour(s).")
+            scheduleEngine.scheduleRecurring(name, intervalMinutes, prompt)
+            ToolResult.Success("Scheduled '$name' to run every $displayInterval.")
         } catch (e: Exception) {
             ToolResult.Error("Failed to create schedule: ${e.message}")
         }
@@ -110,7 +112,7 @@ class ScheduleTool(
                 for (schedule in schedules) {
                     add(buildJsonObject {
                         put("name", JsonPrimitive(schedule.name))
-                        put("interval_hours", JsonPrimitive(schedule.intervalHours))
+                        put("interval_minutes", JsonPrimitive(schedule.intervalMinutes))
                         put("action", JsonPrimitive(schedule.skillAction))
                         put("next_run_time", JsonPrimitive(schedule.nextRunTime))
                     })
@@ -158,7 +160,7 @@ class ScheduleTool(
 
         return try {
             scheduleEngine.cancelSchedule(name)
-            scheduleEngine.scheduleRecurring(name, schedule.intervalHours, schedule.skillAction)
+            scheduleEngine.scheduleRecurring(name, schedule.intervalMinutes, schedule.skillAction)
             ToolResult.Success("Triggered immediate run of '$name'. It will continue on its regular schedule.")
         } catch (e: Exception) {
             ToolResult.Error("Failed to run schedule immediately: ${e.message}")
