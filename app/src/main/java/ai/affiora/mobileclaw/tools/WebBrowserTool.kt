@@ -172,8 +172,25 @@ class WebBrowserTool(
         val url = params["url"]?.jsonPrimitive?.content
             ?: return ToolResult.Error("Missing required parameter: url")
 
+        // FIX 3: Validate URI scheme — only allow http/https
+        val uri = Uri.parse(url)
+        val allowedSchemes = setOf("http", "https")
+        if (uri.scheme?.lowercase() !in allowedSchemes) {
+            return ToolResult.Error("Only http/https URLs are allowed. Got: ${uri.scheme}")
+        }
+
+        // SSRF protection: block internal network addresses (same as open_url)
+        val host = try {
+            java.net.URI(url).host ?: return ToolResult.Error("Invalid URL: cannot parse host")
+        } catch (e: Exception) {
+            return ToolResult.Error("Invalid URL: ${e.message}")
+        }
+        if (blockedHostPatterns.any { it.containsMatchIn(host) }) {
+            return ToolResult.Error("Blocked: requests to internal network addresses are not allowed ($host)")
+        }
+
         return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)

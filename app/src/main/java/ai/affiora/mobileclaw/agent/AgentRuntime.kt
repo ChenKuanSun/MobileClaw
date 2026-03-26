@@ -57,6 +57,20 @@ class AgentRuntime @Inject constructor(
             )
         )
 
+        // FIX 9: Context window overflow protection — trim before starting the loop
+        val historyChars = messages.sumOf { msg ->
+            when (val c = msg.content) {
+                is ClaudeContent.Text -> c.text.length
+                else -> 500 // rough estimate for non-text
+            }
+        }
+        if (historyChars > 150_000) {
+            val trimmed = listOf(messages.first()) + messages.takeLast(10)
+            messages.clear()
+            messages.addAll(trimmed)
+            emit(AgentEvent.Error("Conversation too long. Older messages trimmed. Use /compact to summarize."))
+        }
+
         var iterations = 0
         var consecutiveToolErrors = 0
 
@@ -74,7 +88,19 @@ class AgentRuntime @Inject constructor(
             val response = try {
                 callApiStreaming(request)
             } catch (e: ClaudeApiException) {
-                emit(AgentEvent.Error("API error (${e.statusCode}): ${e.errorBody}"))
+                // FIX 8: Better error messages for common failures
+                val errorMsg = when (e.statusCode) {
+                    401 -> "API error (401): Unauthorized. Check your API key in Settings."
+                    429 -> "API error (429): ${e.errorBody} Rate limited. Will retry automatically."
+                    else -> "API error (${e.statusCode}): ${e.errorBody}"
+                }
+                emit(AgentEvent.Error(errorMsg))
+                return@flow
+            } catch (e: java.net.UnknownHostException) {
+                emit(AgentEvent.Error("No internet connection. Check your network."))
+                return@flow
+            } catch (e: java.net.ConnectException) {
+                emit(AgentEvent.Error("No internet connection. Check your network."))
                 return@flow
             } catch (e: Exception) {
                 emit(AgentEvent.Error("Unexpected error: ${e.message ?: "unknown"}"))
@@ -114,27 +140,36 @@ class AgentRuntime @Inject constructor(
                     is ContentBlock.ToolUseBlock -> {
                         hasToolUse = true
                         val inputMap: Map<String, JsonElement> = block.input.toMap()
+                            .filterKeys { it != "__confirmed" }  // STRIP — AI cannot set this
                         Log.d("AgentRuntime", "Tool call: ${block.name}, input: ${block.input}")
 
                         emit(AgentEvent.ToolCalling(toolName = block.name, input = inputMap))
 
                         val tool = toolRegistry[block.name]
-                        val resultContent: String
+                        val rawResult: String
 
                         if (tool == null) {
-                            resultContent = "Error: Unknown tool '${block.name}'"
+                            rawResult = "Error: Unknown tool '${block.name}'"
                             emit(AgentEvent.ToolResultEvent(
                                 toolName = block.name,
                                 result = ToolResult.Error("Unknown tool: ${block.name}"),
                             ))
                             consecutiveToolErrors++
                         } else {
-                            resultContent = executeAndEmit(tool, block.name, inputMap)
-                            if (resultContent.startsWith("Error:") && !resultContent.contains("cancelled by user")) {
+                            rawResult = executeAndEmit(tool, block.name, inputMap)
+                            if (rawResult.startsWith("Error:") && !rawResult.contains("cancelled by user")) {
                                 consecutiveToolErrors++
                             } else {
                                 consecutiveToolErrors = 0
                             }
+                        }
+
+                        // FIX 6: Cap tool result size to prevent context overflow
+                        val maxResultSize = 100_000 // 100KB
+                        val resultContent = if (rawResult.length > maxResultSize) {
+                            rawResult.take(maxResultSize) + "\n[Truncated: ${rawResult.length} chars total]"
+                        } else {
+                            rawResult
                         }
 
                         // Bail out if tools keep failing
@@ -286,6 +321,21 @@ class AgentRuntime @Inject constructor(
         }
 
         val messages = conversationHistory.toMutableList()
+
+        // FIX 9: Context window overflow protection — trim before starting the loop
+        val historyChars = messages.sumOf { msg ->
+            when (val c = msg.content) {
+                is ClaudeContent.Text -> c.text.length
+                else -> 500 // rough estimate for non-text
+            }
+        }
+        if (historyChars > 150_000) {
+            val trimmed = listOf(messages.first()) + messages.takeLast(10)
+            messages.clear()
+            messages.addAll(trimmed)
+            emit(AgentEvent.Error("Conversation too long. Older messages trimmed. Use /compact to summarize."))
+        }
+
         var iterations = 0
         var consecutiveToolErrors = 0
 
@@ -303,7 +353,19 @@ class AgentRuntime @Inject constructor(
             val response = try {
                 callApiStreaming(request)
             } catch (e: ClaudeApiException) {
-                emit(AgentEvent.Error("API error (${e.statusCode}): ${e.errorBody}"))
+                // FIX 8: Better error messages for common failures
+                val errorMsg = when (e.statusCode) {
+                    401 -> "API error (401): Unauthorized. Check your API key in Settings."
+                    429 -> "API error (429): ${e.errorBody} Rate limited. Will retry automatically."
+                    else -> "API error (${e.statusCode}): ${e.errorBody}"
+                }
+                emit(AgentEvent.Error(errorMsg))
+                return@flow
+            } catch (e: java.net.UnknownHostException) {
+                emit(AgentEvent.Error("No internet connection. Check your network."))
+                return@flow
+            } catch (e: java.net.ConnectException) {
+                emit(AgentEvent.Error("No internet connection. Check your network."))
                 return@flow
             } catch (e: Exception) {
                 emit(AgentEvent.Error("Unexpected error: ${e.message ?: "unknown"}"))
@@ -337,25 +399,34 @@ class AgentRuntime @Inject constructor(
                     is ContentBlock.ToolUseBlock -> {
                         hasToolUse = true
                         val inputMap: Map<String, JsonElement> = block.input.toMap()
+                            .filterKeys { it != "__confirmed" }  // STRIP — AI cannot set this
                         emit(AgentEvent.ToolCalling(toolName = block.name, input = inputMap))
 
                         val tool = toolRegistry[block.name]
-                        val resultContent: String
+                        val rawResult: String
 
                         if (tool == null) {
-                            resultContent = "Error: Unknown tool '${block.name}'"
+                            rawResult = "Error: Unknown tool '${block.name}'"
                             emit(AgentEvent.ToolResultEvent(
                                 toolName = block.name,
                                 result = ToolResult.Error("Unknown tool: ${block.name}"),
                             ))
                             consecutiveToolErrors++
                         } else {
-                            resultContent = executeAndEmit(tool, block.name, inputMap)
-                            if (resultContent.startsWith("Error:")) {
+                            rawResult = executeAndEmit(tool, block.name, inputMap)
+                            if (rawResult.startsWith("Error:")) {
                                 consecutiveToolErrors++
                             } else {
                                 consecutiveToolErrors = 0
                             }
+                        }
+
+                        // FIX 6: Cap tool result size to prevent context overflow
+                        val maxResultSize = 100_000 // 100KB
+                        val resultContent = if (rawResult.length > maxResultSize) {
+                            rawResult.take(maxResultSize) + "\n[Truncated: ${rawResult.length} chars total]"
+                        } else {
+                            rawResult
                         }
 
                         if (consecutiveToolErrors >= 3) {

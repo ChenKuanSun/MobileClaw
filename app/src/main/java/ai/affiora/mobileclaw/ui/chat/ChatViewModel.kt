@@ -303,6 +303,7 @@ class ChatViewModel @Inject constructor(
         _connectionStatus.value = ConnectionStatus.CONNECTED
         streamingMessageId = null
         streamingText.clear()
+        messageQueue.clear()
         val newId = UUID.randomUUID().toString()
         loadConversation(newId)
     }
@@ -315,6 +316,7 @@ class ChatViewModel @Inject constructor(
         _connectionStatus.value = ConnectionStatus.CONNECTED
         streamingMessageId = null
         streamingText.clear()
+        messageQueue.clear()
         loadConversation(id)
     }
 

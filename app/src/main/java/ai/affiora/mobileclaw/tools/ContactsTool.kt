@@ -73,7 +73,8 @@ class ContactsTool(
     private fun executeSearch(params: Map<String, JsonElement>): ToolResult {
         val query = params["query"]?.jsonPrimitive?.content
             ?: return ToolResult.Error("Missing required parameter: query")
-        val limit = params["limit"]?.jsonPrimitive?.int ?: 20
+        if (query.isBlank()) return ToolResult.Error("Search query cannot be empty.")
+        val limit = (params["limit"]?.jsonPrimitive?.int ?: 20).coerceIn(1, 50)
 
         val resolver: ContentResolver = context.contentResolver
 
