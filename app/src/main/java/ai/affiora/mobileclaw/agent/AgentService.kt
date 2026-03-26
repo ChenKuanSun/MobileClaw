@@ -10,6 +10,10 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import ai.affiora.mobileclaw.MobileClawApplication
+import ai.affiora.mobileclaw.channels.ChannelManager
+import ai.affiora.mobileclaw.channels.NotificationChannel
+import ai.affiora.mobileclaw.channels.SmsChannel
+import ai.affiora.mobileclaw.channels.TelegramChannel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +27,18 @@ class AgentService : Service() {
 
     @Inject
     lateinit var agentRuntime: AgentRuntime
+
+    @Inject
+    lateinit var channelManager: ChannelManager
+
+    @Inject
+    lateinit var telegramChannel: TelegramChannel
+
+    @Inject
+    lateinit var smsChannel: SmsChannel
+
+    @Inject
+    lateinit var notificationChannel: NotificationChannel
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val binder = AgentBinder()
@@ -42,6 +58,12 @@ class AgentService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, buildNotification())
         }
+
+        // Register and start messaging channels
+        channelManager.registerChannel(telegramChannel)
+        channelManager.registerChannel(smsChannel)
+        channelManager.registerChannel(notificationChannel)
+        channelManager.startAll()
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -61,6 +83,7 @@ class AgentService : Service() {
     }
 
     override fun onDestroy() {
+        channelManager.stopAll()
         serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()

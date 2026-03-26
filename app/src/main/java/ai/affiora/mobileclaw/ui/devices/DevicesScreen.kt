@@ -1,5 +1,6 @@
 package ai.affiora.mobileclaw.ui.devices
 
+import ai.affiora.mobileclaw.channels.PairedSender
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
@@ -20,14 +21,22 @@ import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -88,19 +97,24 @@ fun DevicesScreen(
                 ConnectedServicesCard(state)
             }
 
-            // Footer message
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                ),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text(
-                    text = "Phone-to-Phone gateway coming soon. Your device info is shown above.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
+            // Pairing Code card
+            PairingCodeCard(
+                code = state.pairingCode,
+                onRefresh = { viewModel.generateNewPairingCode() },
+            )
+
+            // Active Channels card
+            if (state.channelStatuses.isNotEmpty()) {
+                ActiveChannelsCard(state)
+            }
+
+            // Paired Devices card
+            if (state.pairedSenders.isNotEmpty()) {
+                PairedDevicesCard(
+                    senders = state.pairedSenders,
+                    onUnpair = { channelId, senderId ->
+                        viewModel.unpairSender(channelId, senderId)
+                    },
                 )
             }
         }
@@ -335,5 +349,234 @@ private fun InfoRow(label: String, value: String) {
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
+    }
+}
+
+@Composable
+private fun PairingCodeCard(code: String, onRefresh: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "Pairing Code",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = code,
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Send this code to your Telegram bot or via SMS to pair a device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onRefresh,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Generate New Code")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveChannelsCard(state: DevicesUiState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+        ) {
+            Text(
+                text = "Active Channels",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            state.channelStatuses.forEachIndexed { index, status ->
+                val icon = when (status.channelId) {
+                    "telegram" -> Icons.AutoMirrored.Filled.Message
+                    "sms" -> Icons.Default.Sms
+                    "notifications" -> Icons.Default.Notifications
+                    else -> Icons.Default.Cloud
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = if (status.isRunning) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = status.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = "${status.pairedCount} paired",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        imageVector = if (status.isRunning) Icons.Default.CheckCircle else Icons.Default.Error,
+                        contentDescription = if (status.isRunning) "Running" else "Stopped",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (status.isRunning) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (status.isRunning) "Running" else "Stopped",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (status.isRunning) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    )
+                }
+
+                if (index < state.channelStatuses.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 2.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PairedDevicesCard(
+    senders: List<PairedSender>,
+    onUnpair: (String, String) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+        ) {
+            Text(
+                text = "Paired Devices",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            senders.forEachIndexed { index, sender ->
+                val icon = when (sender.channelId) {
+                    "telegram" -> Icons.AutoMirrored.Filled.Message
+                    "sms" -> Icons.Default.Sms
+                    "notifications" -> Icons.Default.Notifications
+                    else -> Icons.Default.Cloud
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = sender.channelId,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = sender.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = "${sender.channelId} - ${sender.id}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { onUnpair(sender.channelId, sender.id) }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Unpair",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+
+                if (index < senders.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 2.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                }
+            }
+        }
     }
 }

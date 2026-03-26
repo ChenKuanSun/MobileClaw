@@ -28,6 +28,14 @@ class ClawNotificationListener : NotificationListenerService() {
         while (cache.size > MAX_CACHE_SIZE) {
             cache.removeLast()
         }
+
+        // Notify the Channel system
+        onNotificationCallback?.invoke(
+            sbn.packageName,
+            title.ifEmpty { null },
+            text.ifEmpty { null },
+            sbn.postTime,
+        )
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
@@ -37,6 +45,9 @@ class ClawNotificationListener : NotificationListenerService() {
     companion object : NotificationCache {
         private const val MAX_CACHE_SIZE = 200
         private val cache = ConcurrentLinkedDeque<CachedNotification>()
+
+        /** Callback for the Channel system. Args: packageName, title, text, postTime. */
+        var onNotificationCallback: ((String, String?, String?, Long) -> Unit)? = null
 
         override fun getRecent(since: Long?, packageName: String?, limit: Int): List<CachedNotification> {
             return cache.asSequence()

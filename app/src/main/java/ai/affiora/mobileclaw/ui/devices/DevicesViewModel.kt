@@ -4,6 +4,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import ai.affiora.mobileclaw.channels.ChannelManager
+import ai.affiora.mobileclaw.channels.ChannelStatus
+import ai.affiora.mobileclaw.channels.PairedSender
 import ai.affiora.mobileclaw.connectors.ConnectorManager
 import ai.affiora.mobileclaw.connectors.ConnectorStatus
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
@@ -38,6 +41,9 @@ data class DevicesUiState(
     val availableToolsCount: Int = 0,
     val activeSkillsCount: Int = 0,
     val connectedServices: List<ConnectedServiceInfo> = emptyList(),
+    val channelStatuses: List<ChannelStatus> = emptyList(),
+    val pairedSenders: List<PairedSender> = emptyList(),
+    val pairingCode: String = "",
     val isLoading: Boolean = true,
 )
 
@@ -48,6 +54,7 @@ class DevicesViewModel @Inject constructor(
     private val connectorManager: ConnectorManager,
     private val skillsManager: SkillsManager,
     private val toolRegistry: Map<String, @JvmSuppressWildcards AndroidTool>,
+    private val channelManager: ChannelManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DevicesUiState())
@@ -59,6 +66,21 @@ class DevicesViewModel @Inject constructor(
 
     fun refresh() {
         loadDeviceInfo()
+    }
+
+    fun generateNewPairingCode() {
+        val code = channelManager.generatePairingCode()
+        _uiState.update { it.copy(pairingCode = code) }
+    }
+
+    fun unpairSender(channelId: String, senderId: String) {
+        channelManager.unpairSender(channelId, senderId)
+        _uiState.update {
+            it.copy(
+                pairedSenders = channelManager.getAllPairedSenders(),
+                channelStatuses = channelManager.channelStatuses.value,
+            )
+        }
     }
 
     private fun loadDeviceInfo() {
@@ -88,6 +110,9 @@ class DevicesViewModel @Inject constructor(
                     availableToolsCount = toolRegistry.size,
                     activeSkillsCount = activeSkills.size,
                     connectedServices = connectedServices,
+                    channelStatuses = channelManager.channelStatuses.value,
+                    pairedSenders = channelManager.getAllPairedSenders(),
+                    pairingCode = channelManager.pairingCode.value,
                     isLoading = false,
                 )
             }
