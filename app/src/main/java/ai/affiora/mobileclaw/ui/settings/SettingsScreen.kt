@@ -70,7 +70,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -100,22 +100,22 @@ private val pageTitles = mapOf(
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val selectedProvider by viewModel.selectedProvider.collectAsState()
-    val selectedModel by viewModel.selectedModel.collectAsState()
-    val deviceName by viewModel.deviceName.collectAsState()
-    val providerTokens by viewModel.providerTokens.collectAsState()
-    val clearHistoryCompleted by viewModel.clearHistoryCompleted.collectAsState()
-    val permissionMode by viewModel.permissionMode.collectAsState()
-    val allowedTools by viewModel.allowedTools.collectAsState()
-    val connectorStatuses by viewModel.connectorStatuses.collectAsState()
+    val selectedProvider by viewModel.selectedProvider.collectAsStateWithLifecycle()
+    val selectedModel by viewModel.selectedModel.collectAsStateWithLifecycle()
+    val deviceName by viewModel.deviceName.collectAsStateWithLifecycle()
+    val providerTokens by viewModel.providerTokens.collectAsStateWithLifecycle()
+    val clearHistoryCompleted by viewModel.clearHistoryCompleted.collectAsStateWithLifecycle()
+    val permissionMode by viewModel.permissionMode.collectAsStateWithLifecycle()
+    val allowedTools by viewModel.allowedTools.collectAsStateWithLifecycle()
+    val connectorStatuses by viewModel.connectorStatuses.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
     val oauthLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            viewModel.handleOAuthCallback(result.data!!)
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { viewModel.handleOAuthCallback(it) }
         }
     }
 

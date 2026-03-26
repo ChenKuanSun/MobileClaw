@@ -37,6 +37,7 @@ class SettingsViewModel @Inject constructor(
     private val conversationDao: ConversationDao,
     private val permissionManager: PermissionManager,
     private val connectorManager: ConnectorManager,
+    private val toolRegistry: Map<String, @JvmSuppressWildcards ai.affiora.mobileclaw.tools.AndroidTool>,
 ) : ViewModel() {
 
     val selectedProvider: StateFlow<AiProvider> = userPreferences.selectedProvider
@@ -199,11 +200,6 @@ class SettingsViewModel @Inject constructor(
         return connectorManager.getClientId(connectorId)
     }
 
-    /** All available tool names for the allowlist UI. */
-    val allToolNames: List<String> = listOf(
-        "alarm_timer", "app", "brightness", "calendar", "call_log", "clipboard",
-        "contacts", "filesystem", "flashlight", "media_control", "notifications",
-        "phone_call", "screen_capture", "skills_author", "sms", "system_info",
-        "ui_automation", "volume", "web",
-    )
+    /** All available tool names for the allowlist UI — derived from the actual tool registry. */
+    val allToolNames: List<String> = toolRegistry.keys.sorted()
 }

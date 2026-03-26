@@ -13,6 +13,8 @@ import ai.affiora.mobileclaw.MobileClawApplication
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,6 +24,7 @@ class AgentService : Service() {
     @Inject
     lateinit var agentRuntime: AgentRuntime
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val binder = AgentBinder()
 
     inner class AgentBinder : Binder() {
@@ -46,7 +49,7 @@ class AgentService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val scheduledAction = intent?.getStringExtra(EXTRA_SCHEDULED_ACTION)
         if (!scheduledAction.isNullOrBlank()) {
-            CoroutineScope(Dispatchers.IO).launch {
+            serviceScope.launch {
                 agentRuntime.run(
                     userMessage = scheduledAction,
                     conversationHistory = emptyList(),
@@ -58,6 +61,7 @@ class AgentService : Service() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }

@@ -44,7 +44,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,8 +64,8 @@ fun SkillsScreen(
     onNavigateToChat: (() -> Unit)? = null,
 ) {
     val localContext = LocalContext.current
-    val state by viewModel.uiState.collectAsState()
-    val installState by viewModel.installState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val installState by viewModel.installState.collectAsStateWithLifecycle()
     var showInstallDialog by remember { mutableStateOf(false) }
     var showAddMenu by remember { mutableStateOf(false) }
     var installUrl by remember { mutableStateOf("") }

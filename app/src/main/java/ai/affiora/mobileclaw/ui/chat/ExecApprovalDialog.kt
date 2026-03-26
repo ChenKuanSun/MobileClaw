@@ -329,7 +329,9 @@ fun parseParametersForDisplay(input: Map<String, Any?>): Map<String, String> {
 
 private val HIGH_RISK_TOOLS = setOf(
     "sms",
-    "app",
+    "phone",
+    "http",
+    "files",
 )
 
 private val MEDIUM_RISK_TOOLS = setOf(
@@ -337,4 +339,7 @@ private val MEDIUM_RISK_TOOLS = setOf(
     "contacts",
     "web",
     "skills_author",
+    "schedule",
+    "openai",
+    "app",
 )

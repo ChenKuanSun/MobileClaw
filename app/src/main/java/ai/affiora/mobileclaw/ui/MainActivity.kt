@@ -10,7 +10,7 @@ import ai.affiora.mobileclaw.connectors.ConnectorManager
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import ai.affiora.mobileclaw.ui.theme.MobileClawTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
         val data = intent.data ?: return
         if (data.scheme == "mobileclaw" && data.host == "oauth" && data.path == "/callback") {
             Log.d("MainActivity", "OAuth callback received: $data")
-            CoroutineScope(Dispatchers.IO).launch {
+            lifecycleScope.launch(Dispatchers.IO) {
                 connectorManager.handleOAuthCallback(intent).fold(
                     onSuccess = { connectorId ->
                         Log.d("MainActivity", "OAuth connected: $connectorId")

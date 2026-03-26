@@ -746,7 +746,8 @@ class ChatViewModel @Inject constructor(
                 } else {
                     // Subsequent delta: update the existing message
                     streamingText.append(event.delta)
-                    val existing = chatMessageDao.getMessageById(streamingMessageId!!)
+                    val msgId = streamingMessageId ?: return
+                    val existing = chatMessageDao.getMessageById(msgId)
                     if (existing != null) {
                         val toolMarkers = if (currentToolActivities.isNotEmpty()) {
                             currentToolActivities.joinToString("\n") { it.toMarker() } + "\n"

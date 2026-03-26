@@ -47,5 +47,13 @@
 -keep class com.anthropic.** { *; }
 -dontwarn com.anthropic.**
 
+# AppAuth
+-keep class net.openid.appauth.** { *; }
+-dontwarn net.openid.appauth.**
+
+# ZXing
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
+
 # Keep data classes used by serialization
 -keep class ai.affiora.mobileclaw.data.model.** { *; }

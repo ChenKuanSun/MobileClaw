@@ -87,7 +87,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -120,18 +120,18 @@ import java.util.Locale
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
-    val allMessages by viewModel.messages.collectAsState()
+    val allMessages by viewModel.messages.collectAsStateWithLifecycle()
     // Filter out TOOL_RESULT messages — tool info is now embedded in assistant messages
     val messages = remember(allMessages) {
         allMessages.filter { it.role != MessageRole.TOOL_RESULT }
     }
-    val isProcessing by viewModel.isProcessing.collectAsState()
-    val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
-    val tokenUsage by viewModel.tokenUsage.collectAsState()
-    val connectionStatus by viewModel.connectionStatus.collectAsState()
-    val isThinking by viewModel.isThinking.collectAsState()
-    val conversations by viewModel.conversations.collectAsState()
-    val speakingMessageId by viewModel.speakingMessageId.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsStateWithLifecycle()
+    val pendingConfirmation by viewModel.pendingConfirmation.collectAsStateWithLifecycle()
+    val tokenUsage by viewModel.tokenUsage.collectAsStateWithLifecycle()
+    val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
+    val isThinking by viewModel.isThinking.collectAsStateWithLifecycle()
+    val conversations by viewModel.conversations.collectAsStateWithLifecycle()
+    val speakingMessageId by viewModel.speakingMessageId.collectAsStateWithLifecycle()
 
     var inputText by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -144,7 +144,7 @@ fun ChatScreen(
 
     // Input history state
     var historyIndex by remember { mutableIntStateOf(-1) }
-    val inputHistory by viewModel.inputHistory.collectAsState()
+    val inputHistory by viewModel.inputHistory.collectAsStateWithLifecycle()
 
     // Slash command menu state
     val showSlashMenu by remember {

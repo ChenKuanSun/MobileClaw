@@ -101,7 +101,7 @@ class ClaudeApiClient @Inject constructor(
                 delay(totalDelay)
             }
         }
-        throw lastException!!
+        throw lastException ?: IllegalStateException("Retry exhausted")
     }
 
     suspend fun sendMessage(
