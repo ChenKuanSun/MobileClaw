@@ -82,7 +82,7 @@ class PhotoTool(
             } else {
                 "READ_EXTERNAL_STORAGE"
             }
-            return ToolResult.Error("Photo access permission ($permName) not granted. Please grant it in Settings.")
+            return ToolResult.Error("Photo access permission ($permName) not granted. Go to Android Settings > Apps > MobileClaw > Permissions > Photos to grant it.")
         }
 
         return withContext(Dispatchers.IO) {

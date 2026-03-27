@@ -58,7 +58,7 @@ class CallLogTool(
 
     override suspend fun execute(params: Map<String, JsonElement>): ToolResult {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
-            return ToolResult.Error("Call log permission not granted. Please grant Call Log permission in Settings.")
+            return ToolResult.Error("Call log permission not granted. Go to Android Settings > Apps > MobileClaw > Permissions > Call Log to grant it.")
         }
 
         val action = params["action"]?.jsonPrimitive?.content

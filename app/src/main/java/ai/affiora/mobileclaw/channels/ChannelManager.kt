@@ -192,10 +192,17 @@ class ChannelManager @Inject constructor(
             "Keep responses concise. " +
             "Do not reveal information about other users or conversations."
 
+        // Build user message text, appending media descriptions if present
+        val userMessageText = if (msg.mediaDescription != null) {
+            "${msg.text}\n[${msg.mediaDescription}]"
+        } else {
+            msg.text
+        }
+
         // Run agent and collect response
         val response = StringBuilder()
         try {
-            agentRuntime.run(msg.text, claudeHistory, systemPrompt).collect { event ->
+            agentRuntime.run(userMessageText, claudeHistory, systemPrompt, msg.imageBase64).collect { event ->
                 when (event) {
                     is AgentEvent.Text -> response.append(event.text)
                     is AgentEvent.TextDelta -> response.append(event.delta)
@@ -329,6 +336,12 @@ class ChannelManager @Inject constructor(
     fun getAllPairedSenders(): List<PairedSender> {
         return channels.values.flatMap { it.getPairedSenders() }
     }
+
+    /** Get a channel by ID. */
+    fun getChannel(channelId: String): Channel? = channels[channelId]
+
+    /** Get all registered channels. */
+    fun getAllChannels(): List<Channel> = channels.values.toList()
 
     fun refreshStatuses() {
         _channelStatuses.value = channels.values.map { channel ->

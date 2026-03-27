@@ -7,6 +7,8 @@ import ai.affiora.mobileclaw.tools.AndroidTool
 import ai.affiora.mobileclaw.tools.AppLauncherTool
 import ai.affiora.mobileclaw.tools.BrightnessTool
 import ai.affiora.mobileclaw.tools.CalendarTool
+import ai.affiora.mobileclaw.tools.ChannelTool
+import ai.affiora.mobileclaw.channels.ChannelManager
 import ai.affiora.mobileclaw.tools.CallLogTool
 import ai.affiora.mobileclaw.tools.ClipboardTool
 import ai.affiora.mobileclaw.tools.ContactsTool
@@ -237,6 +239,15 @@ object ToolsModule {
 
     @Provides
     @Singleton
+    fun provideChannelTool(
+        channelManager: dagger.Lazy<ChannelManager>,
+        @ApplicationContext context: Context,
+    ): ChannelTool {
+        return ChannelTool(channelManager, context)
+    }
+
+    @Provides
+    @Singleton
     fun provideToolRegistry(
         smsTool: SmsTool,
         callLogTool: CallLogTool,
@@ -263,6 +274,7 @@ object ToolsModule {
         openAiTool: OpenAiTool,
         photoTool: PhotoTool,
         telegramTool: TelegramTool,
+        channelTool: ChannelTool,
     ): Map<String, AndroidTool> {
         val tools: List<AndroidTool> = listOf(
             smsTool,
@@ -290,6 +302,7 @@ object ToolsModule {
             openAiTool,
             photoTool,
             telegramTool,
+            channelTool,
         )
         return tools.associateBy { it.name }
     }

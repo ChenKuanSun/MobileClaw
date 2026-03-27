@@ -83,10 +83,10 @@ class CalendarTool(
             ?: return ToolResult.Error("Missing required parameter: action")
 
         if (action == "events" && readPerm != PackageManager.PERMISSION_GRANTED) {
-            return ToolResult.Error("Calendar read permission not granted. Please grant Calendar permission in Settings.")
+            return ToolResult.Error("Calendar read permission not granted. Go to Android Settings > Apps > MobileClaw > Permissions > Calendar to grant it.")
         }
         if (action == "add" && writePerm != PackageManager.PERMISSION_GRANTED) {
-            return ToolResult.Error("Calendar write permission not granted. Please grant Calendar permission in Settings.")
+            return ToolResult.Error("Calendar write permission not granted. Go to Android Settings > Apps > MobileClaw > Permissions > Calendar to grant it.")
         }
 
         return withContext(Dispatchers.IO) {

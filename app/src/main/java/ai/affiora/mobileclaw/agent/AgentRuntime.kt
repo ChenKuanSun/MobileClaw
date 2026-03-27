@@ -7,6 +7,7 @@ import ai.affiora.mobileclaw.data.model.ClaudeRequest
 import ai.affiora.mobileclaw.data.model.ClaudeResponse
 import ai.affiora.mobileclaw.data.model.ClaudeTool
 import ai.affiora.mobileclaw.data.model.ContentBlock
+import ai.affiora.mobileclaw.data.model.ImageSource
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import ai.affiora.mobileclaw.tools.AndroidTool
 import ai.affiora.mobileclaw.tools.ToolResult
@@ -38,6 +39,7 @@ class AgentRuntime @Inject constructor(
         userMessage: String,
         conversationHistory: List<ClaudeMessage>,
         systemPrompt: String,
+        imageBase64: String? = null,
     ): Flow<AgentEvent> = flow {
         val model = userPreferences.selectedModel.first()
 
@@ -50,10 +52,25 @@ class AgentRuntime @Inject constructor(
         }
 
         val messages = conversationHistory.toMutableList()
+        val userContent = if (imageBase64 != null) {
+            ClaudeContent.ContentList(
+                blocks = listOf(
+                    ContentBlock.ImageBlock(
+                        source = ImageSource(
+                            mediaType = "image/jpeg",
+                            data = imageBase64,
+                        ),
+                    ),
+                    ContentBlock.TextBlock(text = userMessage),
+                ),
+            )
+        } else {
+            ClaudeContent.Text(userMessage)
+        }
         messages.add(
             ClaudeMessage(
                 role = "user",
-                content = ClaudeContent.Text(userMessage),
+                content = userContent,
             )
         )
 

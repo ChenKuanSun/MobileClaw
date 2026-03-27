@@ -49,6 +49,7 @@ class AgentService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        android.util.Log.d("AgentService", "onCreate — starting service")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,

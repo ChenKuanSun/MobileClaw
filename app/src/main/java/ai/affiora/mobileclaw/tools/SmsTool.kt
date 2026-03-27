@@ -70,10 +70,10 @@ class SmsTool(
             ?: return ToolResult.Error("Missing required parameter: action")
 
         if (action == "search" && ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
-            return ToolResult.Error("SMS permission not granted. Please grant SMS permission in Settings.")
+            return ToolResult.Error("SMS read permission not granted. Go to Android Settings > Apps > MobileClaw > Permissions > SMS to grant it.")
         }
         if (action == "send" && ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-            return ToolResult.Error("SMS send permission not granted. Please grant SMS permission in Settings.")
+            return ToolResult.Error("SMS send permission not granted. Go to Android Settings > Apps > MobileClaw > Permissions > SMS to grant it.")
         }
 
         return withContext(Dispatchers.IO) {

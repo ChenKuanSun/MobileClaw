@@ -9,6 +9,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
@@ -21,6 +22,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -69,6 +71,9 @@ class TelegramChannel(
             var offset = loadOffset()
             var backoff = 1000L
 
+            // Register bot commands on startup
+            registerBotCommands(token)
+
             while (isActive) {
                 try {
                     val response = httpClient.get("https://api.telegram.org/bot$token/getUpdates") {
@@ -84,7 +89,54 @@ class TelegramChannel(
                         backoff = 1000L
                         for (update in apiResponse.result) {
                             val msg = update.message ?: continue
-                            val text = msg.text ?: continue
+
+                            val text = msg.text ?: msg.caption ?: ""
+                            val photoFileId = msg.photo?.lastOrNull()?.fileId
+                            val docFileId = msg.document?.fileId
+                            val voiceFileId = msg.voice?.fileId
+
+                            // Skip completely empty messages
+                            if (text.isBlank() && photoFileId == null && docFileId == null && voiceFileId == null) {
+                                offset = update.updateId + 1
+                                saveOffset(offset)
+                                continue
+                            }
+
+                            // Handle bot commands before passing to AI
+                            if (text.startsWith("/")) {
+                                handleBotCommand(token, msg, text)
+                                offset = update.updateId + 1
+                                saveOffset(offset)
+                                continue
+                            }
+
+                            // Build message text with media context
+                            var messageText = text
+                            var imageBase64: String? = null
+                            val mediaDescriptions = mutableListOf<String>()
+
+                            // Download and encode photo
+                            if (photoFileId != null) {
+                                val bytes = downloadFile(token, photoFileId)
+                                if (bytes != null) {
+                                    imageBase64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                    if (text.isBlank()) {
+                                        messageText = "Describe what you see in this image."
+                                    }
+                                }
+                            }
+
+                            // Note document
+                            if (docFileId != null) {
+                                mediaDescriptions.add("Document: ${msg.document?.fileName ?: "unknown"}")
+                            }
+
+                            // Note voice
+                            if (voiceFileId != null) {
+                                mediaDescriptions.add("Voice message, ${msg.voice?.duration}s")
+                            }
+
+                            val mediaDesc = mediaDescriptions.joinToString("; ").ifBlank { null }
 
                             channelManager.onMessageReceived(
                                 IncomingMessage(
@@ -92,8 +144,10 @@ class TelegramChannel(
                                     chatId = msg.chat.id.toString(),
                                     senderId = msg.chat.id.toString(),
                                     senderName = msg.from?.firstName ?: "User",
-                                    text = text,
+                                    text = messageText,
                                     timestamp = msg.date * 1000L,
+                                    imageBase64 = imageBase64,
+                                    mediaDescription = mediaDesc,
                                 ),
                             )
 
@@ -106,7 +160,7 @@ class TelegramChannel(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.e(TAG, "Poll error", e)
+                    Log.e(TAG, "Poll error: ${e.javaClass.simpleName}: ${e.message}")
                     delay(backoff)
                     backoff = (backoff * 2).coerceAtMost(60_000L)
                 }
@@ -140,6 +194,61 @@ class TelegramChannel(
         }
     }
 
+    override suspend fun sendPhoto(chatId: String, imageBytes: ByteArray, caption: String?): Boolean {
+        val token = connectorManager.getToken("telegram") ?: return false
+        return try {
+            val url = "https://api.telegram.org/bot$token/sendPhoto"
+            val body = buildMultipartBody(chatId, imageBytes, "photo.jpg", "photo", caption)
+            val boundary = body.first
+            httpClient.post(url) {
+                headers.append("Content-Type", "multipart/form-data; boundary=$boundary")
+                setBody(body.second)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send photo: ${e.message}")
+            false
+        }
+    }
+
+    override suspend fun sendDocument(chatId: String, fileBytes: ByteArray, fileName: String, caption: String?): Boolean {
+        val token = connectorManager.getToken("telegram") ?: return false
+        return try {
+            val url = "https://api.telegram.org/bot$token/sendDocument"
+            val body = buildMultipartBody(chatId, fileBytes, fileName, "document", caption)
+            val boundary = body.first
+            httpClient.post(url) {
+                headers.append("Content-Type", "multipart/form-data; boundary=$boundary")
+                setBody(body.second)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send document: ${e.message}")
+            false
+        }
+    }
+
+    /** Build multipart/form-data body. Returns (boundary, bodyBytes). */
+    private fun buildMultipartBody(
+        chatId: String, fileBytes: ByteArray,
+        fileName: String, fieldName: String, caption: String?,
+    ): Pair<String, ByteArray> {
+        val boundary = "----MobileClaw${System.currentTimeMillis()}"
+        val sb = StringBuilder()
+        sb.append("--$boundary\r\n")
+        sb.append("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n$chatId\r\n")
+        if (caption != null) {
+            sb.append("--$boundary\r\n")
+            sb.append("Content-Disposition: form-data; name=\"caption\"\r\n\r\n$caption\r\n")
+        }
+        sb.append("--$boundary\r\n")
+        sb.append("Content-Disposition: form-data; name=\"$fieldName\"; filename=\"$fileName\"\r\n")
+        sb.append("Content-Type: application/octet-stream\r\n\r\n")
+        val prefix = sb.toString().toByteArray()
+        val suffix = "\r\n--$boundary--\r\n".toByteArray()
+        return boundary to (prefix + fileBytes + suffix)
+    }
+
     override fun isAllowed(senderId: String) = senderId in pairedSenders
 
     override fun pair(senderId: String, senderName: String) {
@@ -155,6 +264,114 @@ class TelegramChannel(
     override fun getPairedSenders(): List<PairedSender> {
         return pairedSenders.map {
             PairedSender(id = it, name = "Telegram User", channelId = "telegram")
+        }
+    }
+
+    // ── Bot Commands ──
+
+    private suspend fun registerBotCommands(token: String) {
+        try {
+            val commands = listOf(
+                mapOf("command" to "start", "description" to "Start chatting with MobileClaw"),
+                mapOf("command" to "help", "description" to "Show available commands"),
+                mapOf("command" to "status", "description" to "Check bot status"),
+                mapOf("command" to "unpair", "description" to "Disconnect from this device"),
+            )
+
+            httpClient.post("https://api.telegram.org/bot$token/setMyCommands") {
+                contentType(ContentType.Application.Json)
+                setBody(Json.encodeToString(mapOf("commands" to commands)))
+            }
+            Log.i(TAG, "Bot commands registered")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register bot commands: ${e.message}")
+        }
+    }
+
+    private suspend fun handleBotCommand(token: String, msg: TgMessage, text: String) {
+        val chatId = msg.chat.id.toString()
+        val senderId = msg.chat.id.toString()
+        val command = text.split(" ", "@").first().lowercase()
+
+        when (command) {
+            "/start" -> {
+                if (isAllowed(senderId)) {
+                    sendMessage(chatId, "You're already connected! Send any message to chat with the AI.")
+                } else {
+                    // Delegate to ChannelManager to create pairing request
+                    channelManager.onMessageReceived(
+                        IncomingMessage(
+                            channelId = "telegram",
+                            chatId = chatId,
+                            senderId = senderId,
+                            senderName = msg.from?.firstName ?: "User",
+                            text = "/start",
+                            timestamp = msg.date * 1000L,
+                        ),
+                    )
+                }
+            }
+            "/help" -> {
+                sendMessage(
+                    chatId,
+                    """
+                    |MobileClaw Bot Commands:
+                    |/start - Start chatting with MobileClaw
+                    |/help - Show this help message
+                    |/status - Check bot and device status
+                    |/unpair - Disconnect from this device
+                    |
+                    |You can also send photos, documents, and voice messages.
+                    """.trimMargin(),
+                )
+            }
+            "/status" -> {
+                if (!isAllowed(senderId)) {
+                    sendMessage(chatId, "You're not paired. Send /start to request pairing.")
+                    return
+                }
+                val deviceModel = android.os.Build.MODEL
+                val androidVersion = android.os.Build.VERSION.RELEASE
+                sendMessage(
+                    chatId,
+                    """
+                    |MobileClaw Status:
+                    |Device: $deviceModel (Android $androidVersion)
+                    |Bot: Running
+                    |Paired: Yes
+                    """.trimMargin(),
+                )
+            }
+            "/unpair" -> {
+                if (!isAllowed(senderId)) {
+                    sendMessage(chatId, "You're not paired.")
+                    return
+                }
+                unpair(senderId)
+                channelManager.refreshStatuses()
+                sendMessage(chatId, "Disconnected. Send /start to pair again.")
+            }
+            else -> {
+                // Unknown command — ignore silently
+            }
+        }
+    }
+
+    // ── Media Download ──
+
+    private suspend fun downloadFile(token: String, fileId: String): ByteArray? {
+        return try {
+            val fileResponse = httpClient.get("https://api.telegram.org/bot$token/getFile") {
+                parameter("file_id", fileId)
+            }
+            val fileResult = json.decodeFromString<TgFileResponse>(fileResponse.bodyAsText())
+            val filePath = fileResult.result?.filePath ?: return null
+
+            val fileBytes = httpClient.get("https://api.telegram.org/file/bot$token/$filePath")
+            fileBytes.readRawBytes()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to download file: ${e.message}")
+            null
         }
     }
 
@@ -188,6 +405,12 @@ private data class TgApiResponse(
 )
 
 @Serializable
+private data class TgFileResponse(
+    val ok: Boolean,
+    val result: TgFile? = null,
+)
+
+@Serializable
 private data class TgUpdate(
     @SerialName("update_id") val updateId: Long,
     val message: TgMessage? = null,
@@ -200,6 +423,10 @@ private data class TgMessage(
     val from: TgUser? = null,
     val date: Long,
     val text: String? = null,
+    val caption: String? = null,
+    val photo: List<TgPhotoSize>? = null,
+    val document: TgDocument? = null,
+    val voice: TgVoice? = null,
 )
 
 @Serializable
@@ -212,4 +439,33 @@ private data class TgChat(
 private data class TgUser(
     val id: Long,
     @SerialName("first_name") val firstName: String = "",
+)
+
+@Serializable
+private data class TgPhotoSize(
+    @SerialName("file_id") val fileId: String,
+    val width: Int = 0,
+    val height: Int = 0,
+    @SerialName("file_size") val fileSize: Long = 0,
+)
+
+@Serializable
+private data class TgDocument(
+    @SerialName("file_id") val fileId: String,
+    @SerialName("file_name") val fileName: String? = null,
+    @SerialName("mime_type") val mimeType: String? = null,
+    @SerialName("file_size") val fileSize: Long = 0,
+)
+
+@Serializable
+private data class TgVoice(
+    @SerialName("file_id") val fileId: String,
+    val duration: Int = 0,
+    @SerialName("file_size") val fileSize: Long = 0,
+)
+
+@Serializable
+private data class TgFile(
+    @SerialName("file_id") val fileId: String,
+    @SerialName("file_path") val filePath: String? = null,
 )

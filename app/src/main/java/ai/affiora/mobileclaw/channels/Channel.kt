@@ -12,8 +12,14 @@ interface Channel {
     /** Stop listening. */
     fun stop()
 
-    /** Send a message to a specific chat/user. */
+    /** Send a text message to a specific chat/user. */
     suspend fun sendMessage(chatId: String, text: String)
+
+    /** Send a photo to a specific chat/user. Returns true if supported. */
+    suspend fun sendPhoto(chatId: String, imageBytes: ByteArray, caption: String? = null): Boolean = false
+
+    /** Send a file/document to a specific chat/user. Returns true if supported. */
+    suspend fun sendDocument(chatId: String, fileBytes: ByteArray, fileName: String, caption: String? = null): Boolean = false
 
     /** Check if a sender is paired/allowed. */
     fun isAllowed(senderId: String): Boolean
@@ -42,4 +48,6 @@ data class IncomingMessage(
     val senderName: String,
     val text: String,
     val timestamp: Long,
+    val imageBase64: String? = null,
+    val mediaDescription: String? = null,
 )
