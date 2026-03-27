@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -36,6 +37,10 @@ class ChannelManager @Inject constructor(
         private const val MAX_CHATS = 100
         private const val MAX_MESSAGES_PER_MINUTE = 10
         private const val REQUEST_EXPIRY_MS = 10 * 60 * 1000L // 10 minutes
+        private const val MAX_PENDING = 20 // FIX 1: Cap pending requests
+        private const val PAIRING_NOTIFICATION_ID = 2001 // FIX 2: Single summary notification
+        private const val REJECT_COOLDOWN_MS = 30 * 60 * 1000L // FIX 3: 30 min reject cooldown
+        private const val PENDING_REPLY_COOLDOWN_MS = 60_000L // FIX 6: 60s between pending replies
     }
 
     private val channels = mutableMapOf<String, Channel>()
@@ -54,6 +59,12 @@ class ChannelManager @Inject constructor(
     // Pending pairing requests (request/approve model)
     private val _pendingRequests = MutableStateFlow<List<PairingRequest>>(emptyList())
     val pendingRequests: StateFlow<List<PairingRequest>> = _pendingRequests.asStateFlow()
+
+    // FIX 3: Reject cooldown — sender -> rejection timestamp
+    private val rejectedSenders = ConcurrentHashMap<String, Long>()
+
+    // FIX 6: Rate limit "pending" reply — sender -> last reply timestamp
+    private val lastPendingReply = ConcurrentHashMap<String, Long>()
 
     fun registerChannel(channel: Channel) {
         channels[channel.id] = channel
@@ -82,19 +93,37 @@ class ChannelManager @Inject constructor(
     suspend fun onMessageReceived(msg: IncomingMessage) {
         val channel = channels[msg.channelId] ?: return
 
+        // FIX 5B: Clean expired requests on every message
+        cleanExpiredRequests()
+
         // Check pairing
         if (!channel.isAllowed(msg.senderId)) {
-            cleanExpiredRequests()
+            // FIX 3: Reject cooldown — silently drop if rejected within 30 min
+            val rejectedAt = rejectedSenders[msg.senderId]
+            if (rejectedAt != null && System.currentTimeMillis() - rejectedAt < REJECT_COOLDOWN_MS) {
+                return
+            }
 
             // Check if already has a pending request
             val existing = _pendingRequests.value.any {
                 it.senderId == msg.senderId && it.channelId == msg.channelId
             }
             if (existing) {
-                channel.sendMessage(
-                    msg.chatId,
-                    "Your pairing request is pending. Please wait for approval on the device.",
-                )
+                // FIX 6: Only send "pending" reply once per 60s per sender
+                val now = System.currentTimeMillis()
+                val lastReply = lastPendingReply[msg.senderId]
+                if (lastReply == null || now - lastReply >= PENDING_REPLY_COOLDOWN_MS) {
+                    lastPendingReply[msg.senderId] = now
+                    channel.sendMessage(
+                        msg.chatId,
+                        "Your pairing request is pending. Please wait for approval on the device.",
+                    )
+                }
+                return
+            }
+
+            // FIX 1: Cap pending requests at MAX_PENDING — silently drop
+            if (_pendingRequests.value.size >= MAX_PENDING) {
                 return
             }
 
@@ -105,10 +134,11 @@ class ChannelManager @Inject constructor(
                 senderName = msg.senderName,
                 chatId = msg.chatId,
             )
-            _pendingRequests.value = _pendingRequests.value + request
+            // FIX 4: Atomic StateFlow update
+            _pendingRequests.update { current -> current + request }
 
-            // Send notification to device owner
-            showPairingNotification(request)
+            // FIX 2: Summary notification instead of per-request
+            showPairingSummaryNotification()
 
             // Reply to sender
             channel.sendMessage(
@@ -191,11 +221,20 @@ class ChannelManager @Inject constructor(
 
     fun approvePairing(request: PairingRequest) {
         val channel = channels[request.channelId] ?: return
+
+        // FIX 5A: Check expiry before approving
+        if (request.expiresAt < System.currentTimeMillis()) {
+            _pendingRequests.update { it.filter { r -> r != request } }
+            return // Expired, don't pair
+        }
+
         channel.pair(request.senderId, request.senderName)
 
-        // Remove from pending
-        _pendingRequests.value = _pendingRequests.value.filter {
-            !(it.senderId == request.senderId && it.channelId == request.channelId)
+        // FIX 4: Atomic removal from pending
+        _pendingRequests.update { current ->
+            current.filter {
+                !(it.senderId == request.senderId && it.channelId == request.channelId)
+            }
         }
 
         refreshStatuses()
@@ -212,8 +251,14 @@ class ChannelManager @Inject constructor(
     fun rejectPairing(request: PairingRequest) {
         val channel = channels[request.channelId] ?: return
 
-        _pendingRequests.value = _pendingRequests.value.filter {
-            !(it.senderId == request.senderId && it.channelId == request.channelId)
+        // FIX 3: Record rejection timestamp for cooldown
+        rejectedSenders[request.senderId] = System.currentTimeMillis()
+
+        // FIX 4: Atomic removal
+        _pendingRequests.update { current ->
+            current.filter {
+                !(it.senderId == request.senderId && it.channelId == request.channelId)
+            }
         }
 
         scope.launch {
@@ -223,33 +268,42 @@ class ChannelManager @Inject constructor(
 
     private fun cleanExpiredRequests() {
         val now = System.currentTimeMillis()
-        _pendingRequests.value = _pendingRequests.value.filter { it.expiresAt > now }
+        // FIX 4: Atomic StateFlow update
+        _pendingRequests.update { current -> current.filter { it.expiresAt > now } }
     }
 
-    private fun showPairingNotification(request: PairingRequest) {
-        val channelName = channels[request.channelId]?.displayName ?: request.channelId
+    // FIX 2: Single summary notification that updates in place
+    private fun showPairingSummaryNotification() {
+        val pending = _pendingRequests.value
+        if (pending.isEmpty()) return
+
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Create intent to open the app (Devices page)
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
         val pendingIntent = PendingIntent.getActivity(
             context,
-            request.hashCode(),
+            PAIRING_NOTIFICATION_ID,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val contentText = if (pending.size == 1) {
+            "${pending.first().senderName} wants to connect"
+        } else {
+            "${pending.size} pending pairing requests"
+        }
+
         val notification = NotificationCompat.Builder(context, MobileClawApplication.CHANNEL_AGENT_ALERTS)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("New pairing request")
-            .setContentText("${request.senderName} wants to connect via $channelName")
+            .setContentTitle("Pairing request")
+            .setContentText(contentText)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
-        notificationManager.notify(request.hashCode(), notification)
+        notificationManager.notify(PAIRING_NOTIFICATION_ID, notification)
     }
 
     // ── Message rate limiting (FIX 2) ──
