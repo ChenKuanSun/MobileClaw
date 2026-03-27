@@ -1,12 +1,16 @@
 package ai.affiora.mobileclaw.channels
 
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.util.Log
+import ai.affiora.mobileclaw.MobileClawApplication
 import ai.affiora.mobileclaw.agent.AgentRuntime
 import ai.affiora.mobileclaw.agent.SystemPromptBuilder
 import ai.affiora.mobileclaw.data.model.AgentEvent
 import ai.affiora.mobileclaw.data.model.ClaudeContent
 import ai.affiora.mobileclaw.data.model.ClaudeMessage
+import androidx.core.app.NotificationCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,9 +35,7 @@ class ChannelManager @Inject constructor(
         private const val MAX_HISTORY = 20
         private const val MAX_CHATS = 100
         private const val MAX_MESSAGES_PER_MINUTE = 10
-        private const val PREFS_NAME = "channel_pairing"
-        private const val KEY_PAIRING_CODE = "pairing_code"
-        private const val KEY_PAIRING_EXPIRY = "pairing_code_expiry"
+        private const val REQUEST_EXPIRY_MS = 10 * 60 * 1000L // 10 minutes
     }
 
     private val channels = mutableMapOf<String, Channel>()
@@ -42,26 +44,16 @@ class ChannelManager @Inject constructor(
     // Thread-safe per-channel, per-chat conversation history (FIX 3)
     private val chatHistories = ConcurrentHashMap<String, MutableList<HistoryMessage>>()
 
-    // Rate limiting for pairing attempts (FIX 1B)
-    private val failedAttempts = ConcurrentHashMap<String, Int>()
-    private val lastAttemptTime = ConcurrentHashMap<String, Long>()
-
     // Rate limiting for paired user messages (FIX 2)
     private val messageTimestamps = ConcurrentHashMap<String, MutableList<Long>>()
-
-    // Track senders who already received unpaired instructions on SMS (FIX 8)
-    private val repliedUnpairedSenders = Collections.synchronizedSet(mutableSetOf<String>())
 
     // Channel status observable
     private val _channelStatuses = MutableStateFlow<List<ChannelStatus>>(emptyList())
     val channelStatuses: StateFlow<List<ChannelStatus>> = _channelStatuses.asStateFlow()
 
-    // Pairing code with expiry (FIX 1A, 1C)
-    private val _pairingCode = MutableStateFlow(loadOrGeneratePairingCode())
-    val pairingCode: StateFlow<String> = _pairingCode.asStateFlow()
-    private var pairingCodeExpiry: Long = loadPairingExpiry()
-
-    private val prefs get() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    // Pending pairing requests (request/approve model)
+    private val _pendingRequests = MutableStateFlow<List<PairingRequest>>(emptyList())
+    val pendingRequests: StateFlow<List<PairingRequest>> = _pendingRequests.asStateFlow()
 
     fun registerChannel(channel: Channel) {
         channels[channel.id] = channel
@@ -92,39 +84,37 @@ class ChannelManager @Inject constructor(
 
         // Check pairing
         if (!channel.isAllowed(msg.senderId)) {
-            // FIX 1D: Check rate limit before processing unpaired users
-            if (isRateLimited(msg.senderId)) return // silently drop
+            cleanExpiredRequests()
 
-            // Check if the message IS a pairing code
-            if (isPairingCode(msg.text.trim())) {
-                channel.pair(msg.senderId, msg.senderName)
+            // Check if already has a pending request
+            val existing = _pendingRequests.value.any {
+                it.senderId == msg.senderId && it.channelId == msg.channelId
+            }
+            if (existing) {
                 channel.sendMessage(
                     msg.chatId,
-                    "Paired successfully! You can now chat with MobileClaw.",
+                    "Your pairing request is pending. Please wait for approval on the device.",
                 )
-                // FIX 6: Regenerate code after successful pairing to prevent reuse
-                generatePairingCode()
-                // Clear rate limit state for newly paired sender
-                failedAttempts.remove(msg.senderId)
-                lastAttemptTime.remove(msg.senderId)
-                refreshStatuses()
                 return
             }
 
-            // FIX 1D: Track failed pairing attempts
-            failedAttempts[msg.senderId] = (failedAttempts[msg.senderId] ?: 0) + 1
-            lastAttemptTime[msg.senderId] = System.currentTimeMillis()
+            // Create new pairing request
+            val request = PairingRequest(
+                channelId = msg.channelId,
+                senderId = msg.senderId,
+                senderName = msg.senderName,
+                chatId = msg.chatId,
+            )
+            _pendingRequests.value = _pendingRequests.value + request
 
-            // FIX 8: Don't reply to unpaired SMS senders more than once (cost attack prevention)
-            if (msg.channelId == "sms" && msg.senderId in repliedUnpairedSenders) return
+            // Send notification to device owner
+            showPairingNotification(request)
 
-            // Send pairing instructions
+            // Reply to sender
             channel.sendMessage(
                 msg.chatId,
-                "You're not paired with this MobileClaw instance.\n" +
-                    "Send the pairing code shown in MobileClaw's Devices tab to pair.",
+                "Pairing request sent. Waiting for approval on the device.",
             )
-            repliedUnpairedSenders.add(msg.senderId)
             return
         }
 
@@ -197,16 +187,69 @@ class ChannelManager @Inject constructor(
         }
     }
 
-    // ── Rate limiting (FIX 1B) ──
+    // ── Pairing request management ──
 
-    private fun isRateLimited(senderId: String): Boolean {
-        val attempts = failedAttempts[senderId] ?: 0
-        if (attempts >= 5) {
-            val lastTime = lastAttemptTime[senderId] ?: 0
-            val cooldown = 60_000L * (attempts - 4).coerceAtMost(10) // 1-10 min cooldown
-            return System.currentTimeMillis() - lastTime < cooldown
+    fun approvePairing(request: PairingRequest) {
+        val channel = channels[request.channelId] ?: return
+        channel.pair(request.senderId, request.senderName)
+
+        // Remove from pending
+        _pendingRequests.value = _pendingRequests.value.filter {
+            !(it.senderId == request.senderId && it.channelId == request.channelId)
         }
-        return false
+
+        refreshStatuses()
+
+        // Notify sender
+        scope.launch {
+            channel.sendMessage(
+                request.chatId,
+                "You're now connected to MobileClaw! Send any message to chat with the AI.",
+            )
+        }
+    }
+
+    fun rejectPairing(request: PairingRequest) {
+        val channel = channels[request.channelId] ?: return
+
+        _pendingRequests.value = _pendingRequests.value.filter {
+            !(it.senderId == request.senderId && it.channelId == request.channelId)
+        }
+
+        scope.launch {
+            channel.sendMessage(request.chatId, "Pairing request denied.")
+        }
+    }
+
+    private fun cleanExpiredRequests() {
+        val now = System.currentTimeMillis()
+        _pendingRequests.value = _pendingRequests.value.filter { it.expiresAt > now }
+    }
+
+    private fun showPairingNotification(request: PairingRequest) {
+        val channelName = channels[request.channelId]?.displayName ?: request.channelId
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Create intent to open the app (Devices page)
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            request.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, MobileClawApplication.CHANNEL_AGENT_ALERTS)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("New pairing request")
+            .setContentText("${request.senderName} wants to connect via $channelName")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        notificationManager.notify(request.hashCode(), notification)
     }
 
     // ── Message rate limiting (FIX 2) ──
@@ -220,53 +263,6 @@ class ChannelManager @Inject constructor(
             timestamps.add(now)
         }
         return false
-    }
-
-    // ── Pairing code management (FIX 1A, 1C, 6) ──
-
-    fun generatePairingCode(): String {
-        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no ambiguous 0/O/1/I
-        val code = (1..8).map { chars.random() }.joinToString("")
-        val expiry = System.currentTimeMillis() + 10 * 60 * 1000 // 10 minutes
-        prefs.edit()
-            .putString(KEY_PAIRING_CODE, code)
-            .putLong(KEY_PAIRING_EXPIRY, expiry)
-            .apply()
-        _pairingCode.value = code
-        pairingCodeExpiry = expiry
-        return code
-    }
-
-    private fun loadOrGeneratePairingCode(): String {
-        val existing = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_PAIRING_CODE, null)
-        val expiry = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong(KEY_PAIRING_EXPIRY, 0L)
-        // Return existing only if not expired
-        if (existing != null && expiry > System.currentTimeMillis()) {
-            return existing
-        }
-        // Generate fresh code
-        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        val code = (1..8).map { chars.random() }.joinToString("")
-        val newExpiry = System.currentTimeMillis() + 10 * 60 * 1000
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_PAIRING_CODE, code)
-            .putLong(KEY_PAIRING_EXPIRY, newExpiry)
-            .apply()
-        return code
-    }
-
-    private fun loadPairingExpiry(): Long {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong(KEY_PAIRING_EXPIRY, 0L)
-    }
-
-    private fun isPairingCode(text: String): Boolean {
-        // FIX 1C: Check expiry
-        if (pairingCodeExpiry < System.currentTimeMillis()) return false
-        return _pairingCode.value.isNotBlank() && text.trim().equals(_pairingCode.value, ignoreCase = true)
     }
 
     /** Unpair a sender from a channel. */
@@ -298,6 +294,15 @@ data class ChannelStatus(
     val isRunning: Boolean,
     val pairedCount: Int,
     val lastMessageTime: Long? = null,
+)
+
+data class PairingRequest(
+    val channelId: String,
+    val senderId: String,
+    val senderName: String,
+    val chatId: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val expiresAt: Long = System.currentTimeMillis() + 10 * 60 * 1000,
 )
 
 // FIX 7: Added timestamp field for LRU eviction

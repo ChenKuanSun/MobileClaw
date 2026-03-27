@@ -7,6 +7,7 @@ import android.provider.Settings
 import ai.affiora.mobileclaw.channels.ChannelManager
 import ai.affiora.mobileclaw.channels.ChannelStatus
 import ai.affiora.mobileclaw.channels.PairedSender
+import ai.affiora.mobileclaw.channels.PairingRequest
 import ai.affiora.mobileclaw.connectors.ConnectorManager
 import ai.affiora.mobileclaw.connectors.ConnectorStatus
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
@@ -43,7 +44,7 @@ data class DevicesUiState(
     val connectedServices: List<ConnectedServiceInfo> = emptyList(),
     val channelStatuses: List<ChannelStatus> = emptyList(),
     val pairedSenders: List<PairedSender> = emptyList(),
-    val pairingCode: String = "",
+    val pendingRequests: List<PairingRequest> = emptyList(),
     val isLoading: Boolean = true,
 )
 
@@ -62,15 +63,37 @@ class DevicesViewModel @Inject constructor(
 
     init {
         loadDeviceInfo()
+        observePendingRequests()
     }
 
     fun refresh() {
         loadDeviceInfo()
     }
 
-    fun generateNewPairingCode() {
-        val code = channelManager.generatePairingCode()
-        _uiState.update { it.copy(pairingCode = code) }
+    fun approvePairing(request: PairingRequest) {
+        channelManager.approvePairing(request)
+        _uiState.update {
+            it.copy(
+                pendingRequests = channelManager.pendingRequests.value,
+                pairedSenders = channelManager.getAllPairedSenders(),
+                channelStatuses = channelManager.channelStatuses.value,
+            )
+        }
+    }
+
+    fun rejectPairing(request: PairingRequest) {
+        channelManager.rejectPairing(request)
+        _uiState.update {
+            it.copy(pendingRequests = channelManager.pendingRequests.value)
+        }
+    }
+
+    private fun observePendingRequests() {
+        viewModelScope.launch {
+            channelManager.pendingRequests.collect { requests ->
+                _uiState.update { it.copy(pendingRequests = requests) }
+            }
+        }
     }
 
     fun unpairSender(channelId: String, senderId: String) {
@@ -112,7 +135,7 @@ class DevicesViewModel @Inject constructor(
                     connectedServices = connectedServices,
                     channelStatuses = channelManager.channelStatuses.value,
                     pairedSenders = channelManager.getAllPairedSenders(),
-                    pairingCode = channelManager.pairingCode.value,
+                    pendingRequests = channelManager.pendingRequests.value,
                     isLoading = false,
                 )
             }

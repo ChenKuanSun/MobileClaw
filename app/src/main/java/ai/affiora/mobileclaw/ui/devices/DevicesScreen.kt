@@ -1,6 +1,7 @@
 package ai.affiora.mobileclaw.ui.devices
 
 import ai.affiora.mobileclaw.channels.PairedSender
+import ai.affiora.mobileclaw.channels.PairingRequest
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
@@ -97,11 +99,14 @@ fun DevicesScreen(
                 ConnectedServicesCard(state)
             }
 
-            // Pairing Code card
-            PairingCodeCard(
-                code = state.pairingCode,
-                onRefresh = { viewModel.generateNewPairingCode() },
-            )
+            // Pending Pairing Requests
+            if (state.pendingRequests.isNotEmpty()) {
+                PendingRequestsCard(
+                    requests = state.pendingRequests,
+                    onApprove = { viewModel.approvePairing(it) },
+                    onReject = { viewModel.rejectPairing(it) },
+                )
+            }
 
             // Active Channels card
             if (state.channelStatuses.isNotEmpty()) {
@@ -353,7 +358,11 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun PairingCodeCard(code: String, onRefresh: () -> Unit) {
+private fun PendingRequestsCard(
+    requests: List<PairingRequest>,
+    onApprove: (PairingRequest) -> Unit,
+    onReject: (PairingRequest) -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -375,40 +384,104 @@ private fun PairingCodeCard(code: String, onRefresh: () -> Unit) {
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    text = "Pairing Code",
+                    text = "Pending Pairing Requests",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = code,
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Send this code to your Telegram bot or via SMS to pair a device.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onRefresh,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                ),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text("Generate New Code")
+
+            requests.forEachIndexed { index, request ->
+                val icon = when (request.channelId) {
+                    "telegram" -> Icons.AutoMirrored.Filled.Message
+                    "sms" -> Icons.Default.Sms
+                    else -> Icons.Default.Cloud
+                }
+                val channelLabel = when (request.channelId) {
+                    "telegram" -> "Telegram"
+                    "sms" -> "SMS"
+                    else -> request.channelId
+                }
+                val elapsed = (System.currentTimeMillis() - request.timestamp) / 1000
+                val timeAgo = when {
+                    elapsed < 60 -> "Just now"
+                    elapsed < 3600 -> "${elapsed / 60} min ago"
+                    else -> "${elapsed / 3600}h ago"
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${request.senderName} ($channelLabel)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                        Text(
+                            text = "Requested $timeAgo",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 32.dp, top = 4.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = { onApprove(request) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Approve")
+                    }
+                    Button(
+                        onClick = { onReject(request) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Reject")
+                    }
+                }
+
+                if (index < requests.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f),
+                    )
+                }
             }
         }
     }
