@@ -57,6 +57,11 @@ object ToolsModule {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }
+            install(io.ktor.client.plugins.HttpTimeout) {
+                requestTimeoutMillis = 60_000
+                connectTimeoutMillis = 15_000
+                socketTimeoutMillis = 60_000
+            }
         }
     }
 
