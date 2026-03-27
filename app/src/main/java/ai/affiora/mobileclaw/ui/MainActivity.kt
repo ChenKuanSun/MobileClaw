@@ -46,6 +46,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        try {
+            startForegroundService(Intent(this, AgentService::class.java))
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to ensure AgentService on resume", e)
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOAuthRedirect(intent)

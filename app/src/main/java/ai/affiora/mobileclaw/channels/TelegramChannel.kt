@@ -1,6 +1,8 @@
 package ai.affiora.mobileclaw.channels
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import android.util.Log
 import ai.affiora.mobileclaw.connectors.ConnectorManager
 import io.ktor.client.HttpClient
@@ -13,6 +15,7 @@ import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +49,7 @@ class TelegramChannel(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true }
     private val pairedSenders = mutableSetOf<String>()
+    private var connectivityCallback: ConnectivityManager.NetworkCallback? = null
 
     companion object {
         private const val TAG = "TelegramChannel"
@@ -62,119 +66,137 @@ class TelegramChannel(
         val token = connectorManager.getToken("telegram")
         if (token.isNullOrBlank()) {
             Log.w(TAG, "No Telegram bot token configured")
+            isRunning = false
             return
         }
         if (pollingJob?.isActive == true) return
 
         isRunning = true
+        registerNetworkCallback()
         pollingJob = scope.launch {
-            var offset = loadOffset()
-            var backoff = 1000L
-
-            // Register bot commands on startup
             registerBotCommands(token)
 
+            // Outer restart loop — survives inner pollLoop crashes
             while (isActive) {
                 try {
-                    val response = httpClient.get("https://api.telegram.org/bot$token/getUpdates") {
-                        parameter("offset", offset)
-                        parameter("timeout", 30)
-                        parameter("limit", 10)
-                    }
-
-                    val body = response.bodyAsText()
-                    val apiResponse = json.decodeFromString<TgApiResponse>(body)
-
-                    if (apiResponse.ok && apiResponse.result != null) {
-                        backoff = 1000L
-                        if (apiResponse.result.isNotEmpty()) {
-                            Log.i(TAG, "Received ${apiResponse.result.size} updates")
-                        }
-                        for (update in apiResponse.result) {
-                            val msg = update.message ?: continue
-
-                            val text = msg.text ?: msg.caption ?: ""
-                            val photoFileId = msg.photo?.lastOrNull()?.fileId
-                            val docFileId = msg.document?.fileId
-                            val voiceFileId = msg.voice?.fileId
-
-                            // Skip completely empty messages
-                            if (text.isBlank() && photoFileId == null && docFileId == null && voiceFileId == null) {
-                                offset = update.updateId + 1
-                                saveOffset(offset)
-                                continue
-                            }
-
-                            // Handle bot commands before passing to AI
-                            if (text.startsWith("/")) {
-                                handleBotCommand(token, msg, text)
-                                offset = update.updateId + 1
-                                saveOffset(offset)
-                                continue
-                            }
-
-                            // Build message text with media context
-                            var messageText = text
-                            var imageBase64: String? = null
-                            val mediaDescriptions = mutableListOf<String>()
-
-                            // Download and encode photo
-                            if (photoFileId != null) {
-                                val bytes = downloadFile(token, photoFileId)
-                                if (bytes != null) {
-                                    imageBase64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                                    if (text.isBlank()) {
-                                        messageText = "Describe what you see in this image."
-                                    }
-                                }
-                            }
-
-                            // Note document
-                            if (docFileId != null) {
-                                mediaDescriptions.add("Document: ${msg.document?.fileName ?: "unknown"}")
-                            }
-
-                            // Note voice
-                            if (voiceFileId != null) {
-                                mediaDescriptions.add("Voice message, ${msg.voice?.duration}s")
-                            }
-
-                            val mediaDesc = mediaDescriptions.joinToString("; ").ifBlank { null }
-
-                            channelManager.onMessageReceived(
-                                IncomingMessage(
-                                    channelId = "telegram",
-                                    chatId = msg.chat.id.toString(),
-                                    senderId = msg.chat.id.toString(),
-                                    senderName = msg.from?.firstName ?: "User",
-                                    text = messageText,
-                                    timestamp = msg.date * 1000L,
-                                    imageBase64 = imageBase64,
-                                    mediaDescription = mediaDesc,
-                                ),
-                            )
-
-                            offset = update.updateId + 1
-                            saveOffset(offset)
-                        }
-                    }
-
-                    delay(500)
-                } catch (_: java.net.SocketTimeoutException) {
-                    // Normal for long polling — no messages arrived within timeout
-                    continue
+                    pollLoop(token)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.e(TAG, "Poll error: ${e.javaClass.simpleName}: ${e.message}")
-                    delay(backoff)
-                    backoff = (backoff * 2).coerceAtMost(60_000L)
+                    Log.e(TAG, "Polling loop crashed, restarting in 5s: ${e.message}")
+                    isRunning = false
+                    delay(5000)
+                    isRunning = true
                 }
             }
         }
     }
 
+    private suspend fun pollLoop(token: String) {
+        var offset = loadOffset()
+        var backoff = 1000L
+
+        while (currentCoroutineContext().isActive) {
+            try {
+                val response = httpClient.get("https://api.telegram.org/bot$token/getUpdates") {
+                    parameter("offset", offset)
+                    parameter("timeout", 30)
+                    parameter("limit", 10)
+                }
+
+                val body = response.bodyAsText()
+                val apiResponse = json.decodeFromString<TgApiResponse>(body)
+
+                if (apiResponse.ok && apiResponse.result != null) {
+                    backoff = 1000L
+                    if (apiResponse.result.isNotEmpty()) {
+                        Log.i(TAG, "Received ${apiResponse.result.size} updates")
+                    }
+                    for (update in apiResponse.result) {
+                        val msg = update.message ?: continue
+
+                        val text = msg.text ?: msg.caption ?: ""
+                        val photoFileId = msg.photo?.lastOrNull()?.fileId
+                        val docFileId = msg.document?.fileId
+                        val voiceFileId = msg.voice?.fileId
+
+                        // Skip completely empty messages
+                        if (text.isBlank() && photoFileId == null && docFileId == null && voiceFileId == null) {
+                            offset = update.updateId + 1
+                            saveOffset(offset)
+                            continue
+                        }
+
+                        // Handle bot commands before passing to AI
+                        if (text.startsWith("/")) {
+                            handleBotCommand(token, msg, text)
+                            offset = update.updateId + 1
+                            saveOffset(offset)
+                            continue
+                        }
+
+                        // Build message text with media context
+                        var messageText = text
+                        var imageBase64: String? = null
+                        val mediaDescriptions = mutableListOf<String>()
+
+                        // Download and encode photo
+                        if (photoFileId != null) {
+                            val bytes = downloadFile(token, photoFileId)
+                            if (bytes != null) {
+                                imageBase64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                if (text.isBlank()) {
+                                    messageText = "Describe what you see in this image."
+                                }
+                            }
+                        }
+
+                        // Note document
+                        if (docFileId != null) {
+                            mediaDescriptions.add("Document: ${msg.document?.fileName ?: "unknown"}")
+                        }
+
+                        // Note voice
+                        if (voiceFileId != null) {
+                            mediaDescriptions.add("Voice message, ${msg.voice?.duration}s")
+                        }
+
+                        val mediaDesc = mediaDescriptions.joinToString("; ").ifBlank { null }
+
+                        channelManager.onMessageReceived(
+                            IncomingMessage(
+                                channelId = "telegram",
+                                chatId = msg.chat.id.toString(),
+                                senderId = msg.chat.id.toString(),
+                                senderName = msg.from?.firstName ?: "User",
+                                text = messageText,
+                                timestamp = msg.date * 1000L,
+                                imageBase64 = imageBase64,
+                                mediaDescription = mediaDesc,
+                            ),
+                        )
+
+                        offset = update.updateId + 1
+                        saveOffset(offset)
+                    }
+                }
+
+                delay(500)
+            } catch (_: java.net.SocketTimeoutException) {
+                // Normal for long polling — no messages arrived within timeout
+                continue
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Poll error: ${e.javaClass.simpleName}: ${e.message}")
+                delay(backoff)
+                backoff = (backoff * 2).coerceAtMost(60_000L)
+            }
+        }
+    }
+
     override fun stop() {
+        unregisterNetworkCallback()
         pollingJob?.cancel()
         pollingJob = null
         isRunning = false
@@ -298,6 +320,39 @@ class TelegramChannel(
     override fun getPairedSenders(): List<PairedSender> {
         return pairedSenders.map {
             PairedSender(id = it, name = "Telegram User", channelId = "telegram")
+        }
+    }
+
+    // ── Network Reconnection ──
+
+    private fun registerNetworkCallback() {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivityCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                Log.i(TAG, "Network available — ensuring polling is active")
+                scope.launch {
+                    if (pollingJob?.isActive != true) {
+                        start()
+                    }
+                }
+            }
+
+            override fun onLost(network: Network) {
+                Log.w(TAG, "Network lost")
+            }
+        }
+        cm.registerDefaultNetworkCallback(connectivityCallback!!)
+    }
+
+    private fun unregisterNetworkCallback() {
+        connectivityCallback?.let {
+            try {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                cm.unregisterNetworkCallback(it)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to unregister network callback: ${e.message}")
+            }
+            connectivityCallback = null
         }
     }
 

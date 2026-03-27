@@ -15,6 +15,9 @@ import ai.affiora.mobileclaw.data.model.ImageSource
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +54,7 @@ class ChannelManager @Inject constructor(
 
     private val channels = mutableMapOf<String, Channel>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var watchdogJob: Job? = null
 
     // Thread-safe per-channel, per-chat conversation history (FIX 3)
     private val chatHistories = ConcurrentHashMap<String, MutableList<HistoryMessage>>()
@@ -76,7 +80,7 @@ class ChannelManager @Inject constructor(
         channels[channel.id] = channel
     }
 
-    /** Start all registered channels. */
+    /** Start all registered channels and the watchdog. */
     fun startAll() {
         scope.launch {
             channels.values.forEach { channel ->
@@ -88,12 +92,46 @@ class ChannelManager @Inject constructor(
             }
             refreshStatuses()
         }
+        startWatchdog()
     }
 
     fun stopAll() {
+        stopWatchdog()
         channels.values.forEach { it.stop() }
         refreshStatuses()
     }
+
+    /** Periodic watchdog that restarts dead channels and cleans expired state. */
+    private fun startWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = scope.launch {
+            while (isActive) {
+                delay(30_000) // Check every 30 seconds
+                channels.values.forEach { channel ->
+                    if (!channel.isRunning) {
+                        Log.w(TAG, "Channel ${channel.id} is not running, restarting...")
+                        try {
+                            channel.start()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to restart ${channel.id}: ${e.message}")
+                        }
+                    }
+                }
+                cleanExpiredRequests()
+                refreshStatuses()
+            }
+        }
+    }
+
+    private fun stopWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = null
+    }
+
+    /** Returns true if the watchdog is actively running. */
+    fun isWatchdogRunning(): Boolean = watchdogJob?.isActive == true
 
     /** Called by channels when a message arrives. */
     suspend fun onMessageReceived(msg: IncomingMessage) {

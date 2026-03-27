@@ -3,7 +3,12 @@ package ai.affiora.mobileclaw
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import ai.affiora.mobileclaw.agent.ChannelHealthWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import dagger.hilt.android.HiltAndroidApp
+import java.util.concurrent.TimeUnit
 
 @HiltAndroidApp
 class MobileClawApplication : Application() {
@@ -11,6 +16,18 @@ class MobileClawApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        scheduleHealthCheck()
+    }
+
+    private fun scheduleHealthCheck() {
+        val healthWork = PeriodicWorkRequestBuilder<ChannelHealthWorker>(
+            15, TimeUnit.MINUTES, // WorkManager minimum interval
+        ).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            ChannelHealthWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            healthWork,
+        )
     }
 
     private fun createNotificationChannels() {

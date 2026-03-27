@@ -80,7 +80,21 @@ class AgentService : Service() {
                 ).collect { /* consume events */ }
             }
         }
+
+        // Ensure channels are running (handles system restarts via START_STICKY)
+        ensureChannelsRunning()
+
         return START_STICKY
+    }
+
+    private fun ensureChannelsRunning() {
+        if (!channelManager.isWatchdogRunning()) {
+            android.util.Log.i("AgentService", "Channels not running, restarting...")
+            channelManager.registerChannel(telegramChannel)
+            channelManager.registerChannel(smsChannel)
+            channelManager.registerChannel(notificationChannel)
+            channelManager.startAll()
+        }
     }
 
     override fun onDestroy() {
