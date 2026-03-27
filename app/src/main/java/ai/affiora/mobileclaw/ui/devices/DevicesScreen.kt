@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,6 +95,11 @@ fun DevicesScreen(
 
             // Service Status card
             ServiceStatusCard(state)
+
+            // Permissions card
+            if (state.permissions.isNotEmpty()) {
+                PermissionsStatusCard(state.permissions)
+            }
 
             // Connected Services
             if (state.connectedServices.isNotEmpty()) {
@@ -294,6 +301,71 @@ private fun ConnectedServicesCard(state: DevicesUiState) {
                         modifier = Modifier.padding(vertical = 2.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionsStatusCard(permissions: List<PermissionStatus>) {
+    val granted = permissions.count { it.granted }
+    val total = permissions.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Permissions ($granted/$total)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            permissions.forEach { perm ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                ) {
+                    Icon(
+                        imageVector = if (perm.granted) Icons.Default.Check else Icons.Default.Close,
+                        contentDescription = null,
+                        tint = if (perm.granted) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = perm.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (perm.granted) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            if (granted < total) {
+                Spacer(Modifier.height(8.dp))
+                val context = LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Open App Settings to grant permissions")
                 }
             }
         }

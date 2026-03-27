@@ -370,6 +370,8 @@ private val dangerousPermissions: List<PermissionInfo> = buildList {
     add(PermissionInfo("Camera", "Take photos and videos", Icons.Default.Phone, Manifest.permission.CAMERA))
     add(PermissionInfo("Microphone", "Record audio", Icons.Default.Phone, Manifest.permission.RECORD_AUDIO))
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        add(PermissionInfo("Photos & Media", "Access photos for AI analysis", Icons.Default.Phone, Manifest.permission.READ_MEDIA_IMAGES))
+        add(PermissionInfo("Audio Files", "Access audio for transcription", Icons.Default.Phone, Manifest.permission.READ_MEDIA_AUDIO))
         add(PermissionInfo("Notifications", "Show task progress and alerts", Icons.Default.Notifications, Manifest.permission.POST_NOTIFICATIONS))
     }
 }

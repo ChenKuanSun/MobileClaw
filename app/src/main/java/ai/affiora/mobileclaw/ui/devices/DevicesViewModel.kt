@@ -33,12 +33,18 @@ data class ConnectedServiceInfo(
     val status: ConnectorStatus,
 )
 
+data class PermissionStatus(
+    val name: String,
+    val granted: Boolean,
+)
+
 data class DevicesUiState(
     val deviceName: String = "",
     val deviceModel: String = "${Build.MANUFACTURER} ${Build.MODEL}",
     val androidVersion: String = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
     val accessibilityEnabled: Boolean = false,
     val notificationListenerEnabled: Boolean = false,
+    val permissions: List<PermissionStatus> = emptyList(),
     val availableToolsCount: Int = 0,
     val activeSkillsCount: Int = 0,
     val connectedServices: List<ConnectedServiceInfo> = emptyList(),
@@ -125,11 +131,25 @@ class DevicesViewModel @Inject constructor(
                     )
                 }
 
+            val permissionChecks = buildList {
+                add(PermissionStatus("SMS", checkPerm(android.Manifest.permission.READ_SMS)))
+                add(PermissionStatus("Call Log", checkPerm(android.Manifest.permission.READ_CALL_LOG)))
+                add(PermissionStatus("Contacts", checkPerm(android.Manifest.permission.READ_CONTACTS)))
+                add(PermissionStatus("Calendar", checkPerm(android.Manifest.permission.READ_CALENDAR)))
+                add(PermissionStatus("Camera", checkPerm(android.Manifest.permission.CAMERA)))
+                add(PermissionStatus("Microphone", checkPerm(android.Manifest.permission.RECORD_AUDIO)))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    add(PermissionStatus("Photos & Media", checkPerm(android.Manifest.permission.READ_MEDIA_IMAGES)))
+                    add(PermissionStatus("Notifications", checkPerm(android.Manifest.permission.POST_NOTIFICATIONS)))
+                }
+            }
+
             _uiState.update {
                 it.copy(
                     deviceName = name,
                     accessibilityEnabled = ClawAccessibilityService.isEnabled(),
                     notificationListenerEnabled = isNotificationListenerEnabled(),
+                    permissions = permissionChecks,
                     availableToolsCount = toolRegistry.size,
                     activeSkillsCount = activeSkills.size,
                     connectedServices = connectedServices,
@@ -140,6 +160,11 @@ class DevicesViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun checkPerm(permission: String): Boolean {
+        return androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
