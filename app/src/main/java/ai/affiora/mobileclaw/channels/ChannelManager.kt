@@ -5,12 +5,16 @@ import android.app.PendingIntent
 import android.content.Context
 import android.util.Log
 import ai.affiora.mobileclaw.MobileClawApplication
-import ai.affiora.mobileclaw.agent.AgentRuntime
+import ai.affiora.mobileclaw.agent.ClaudeApiClient
 import ai.affiora.mobileclaw.agent.SystemPromptBuilder
-import ai.affiora.mobileclaw.data.model.AgentEvent
 import ai.affiora.mobileclaw.data.model.ClaudeContent
 import ai.affiora.mobileclaw.data.model.ClaudeMessage
+import ai.affiora.mobileclaw.data.model.ClaudeRequest
+import ai.affiora.mobileclaw.data.model.ContentBlock
+import ai.affiora.mobileclaw.data.model.ImageSource
+import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CancellationException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Collections
@@ -28,7 +33,8 @@ import javax.inject.Singleton
 @Singleton
 class ChannelManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val agentRuntime: AgentRuntime,
+    private val claudeApiClient: ClaudeApiClient,
+    private val userPreferences: UserPreferences,
     private val systemPromptBuilder: SystemPromptBuilder,
 ) {
     companion object {
@@ -91,6 +97,22 @@ class ChannelManager @Inject constructor(
 
     /** Called by channels when a message arrives. */
     suspend fun onMessageReceived(msg: IncomingMessage) {
+        try {
+            handleMessage(msg)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling message from ${msg.channelId}:${msg.senderId}", e)
+            try {
+                val channel = channels[msg.channelId]
+                channel?.sendMessage(msg.chatId, "Sorry, something went wrong. Please try again.")
+            } catch (_: Exception) {
+                // Can't even send error message — log and move on
+            }
+        }
+    }
+
+    private suspend fun handleMessage(msg: IncomingMessage) {
         val channel = channels[msg.channelId] ?: return
 
         // FIX 5B: Clean expired requests on every message
@@ -186,10 +208,12 @@ class ChannelManager @Inject constructor(
             .replace("\r", " ")
             .take(50)
 
-        // Build system prompt with channel context
+        // Build system prompt with channel context — NO tools available
         val systemPrompt = systemPromptBuilder.build() +
-            "\n\nYou are responding via ${channel.displayName} to $safeSenderName. " +
-            "Keep responses concise. " +
+            "\n\nYou are responding to a ${channel.displayName} message from $safeSenderName. " +
+            "IMPORTANT: In this channel context, you can only reply with text. " +
+            "You do NOT have access to tools. Just have a helpful conversation. " +
+            "Keep responses concise (under 4000 characters). " +
             "Do not reveal information about other users or conversations."
 
         // Build user message text, appending media descriptions if present
@@ -199,28 +223,72 @@ class ChannelManager @Inject constructor(
             msg.text
         }
 
-        // Run agent and collect response
-        val response = StringBuilder()
-        try {
-            agentRuntime.run(userMessageText, claudeHistory, systemPrompt, msg.imageBase64).collect { event ->
-                when (event) {
-                    is AgentEvent.Text -> response.append(event.text)
-                    is AgentEvent.TextDelta -> response.append(event.delta)
-                    else -> { /* ignore tool calls etc for channel responses */ }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Agent error for ${msg.channelId}:${msg.chatId}", e)
-            response.append("Error: ${e.message}")
-        }
+        // Send typing indicator for Telegram
+        (channel as? TelegramChannel)?.sendTyping(msg.chatId)
 
-        val reply = response.toString().trim()
+        // Generate response directly via API — no tool loop, no AgentRuntime contention
+        val reply = generateResponse(userMessageText, claudeHistory, systemPrompt, msg.imageBase64)
+
         if (reply.isNotBlank()) {
             channel.sendMessage(msg.chatId, reply)
             synchronized(history) {
                 history.add(HistoryMessage("assistant", reply))
                 while (history.size > MAX_HISTORY) history.removeAt(0)
             }
+        }
+    }
+
+    /**
+     * Generate a text-only response via ClaudeApiClient directly.
+     * No tools, no AgentRuntime — independent from Chat UI.
+     */
+    private suspend fun generateResponse(
+        text: String,
+        history: List<ClaudeMessage>,
+        systemPrompt: String,
+        imageBase64: String?,
+    ): String {
+        return try {
+            val model = userPreferences.selectedModel.first()
+
+            // Build user content — text or text+image
+            val userContent: ClaudeContent = if (imageBase64 != null) {
+                ClaudeContent.ContentList(
+                    listOf(
+                        ContentBlock.ImageBlock(
+                            ImageSource(
+                                type = "base64",
+                                mediaType = "image/jpeg",
+                                data = imageBase64,
+                            ),
+                        ),
+                        ContentBlock.TextBlock(text),
+                    ),
+                )
+            } else {
+                ClaudeContent.Text(text)
+            }
+
+            val messages = history + ClaudeMessage("user", userContent)
+
+            val response = claudeApiClient.sendMessage(
+                ClaudeRequest(
+                    model = model,
+                    messages = messages,
+                    system = systemPrompt,
+                    maxTokens = 2048,
+                    tools = null, // NO tools for channel responses
+                ),
+            )
+            response.content
+                .filterIsInstance<ContentBlock.TextBlock>()
+                .joinToString("") { it.text }
+                .trim()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to generate channel response", e)
+            "Sorry, I encountered an error. Please try again."
         }
     }
 

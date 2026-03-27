@@ -87,6 +87,9 @@ class TelegramChannel(
 
                     if (apiResponse.ok && apiResponse.result != null) {
                         backoff = 1000L
+                        if (apiResponse.result.isNotEmpty()) {
+                            Log.i(TAG, "Received ${apiResponse.result.size} updates")
+                        }
                         for (update in apiResponse.result) {
                             val msg = update.message ?: continue
 
@@ -157,6 +160,9 @@ class TelegramChannel(
                     }
 
                     delay(500)
+                } catch (_: java.net.SocketTimeoutException) {
+                    // Normal for long polling — no messages arrived within timeout
+                    continue
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -178,19 +184,47 @@ class TelegramChannel(
         val token = connectorManager.getToken("telegram") ?: return
         // Split at 4096 char Telegram limit
         text.chunked(4096).forEach { chunk ->
-            try {
-                httpClient.post("https://api.telegram.org/bot$token/sendMessage") {
-                    contentType(ContentType.Application.Json)
-                    setBody(
-                        buildJsonObject {
-                            put("chat_id", JsonPrimitive(chatId.toLong()))
-                            put("text", JsonPrimitive(chunk))
-                        }.toString(),
-                    )
+            var retries = 3
+            while (retries > 0) {
+                try {
+                    httpClient.post("https://api.telegram.org/bot$token/sendMessage") {
+                        contentType(ContentType.Application.Json)
+                        setBody(
+                            buildJsonObject {
+                                put("chat_id", JsonPrimitive(chatId.toLong()))
+                                put("text", JsonPrimitive(chunk))
+                            }.toString(),
+                        )
+                    }
+                    break // Success
+                } catch (e: Exception) {
+                    retries--
+                    if (retries > 0) {
+                        Log.w(TAG, "Send retry ($retries left): ${e.message}")
+                        delay(1000)
+                    } else {
+                        Log.e(TAG, "Failed to send after retries to $chatId", e)
+                    }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send message to $chatId", e)
             }
+        }
+    }
+
+    /** Send a "typing" chat action so user sees the bot is working. */
+    suspend fun sendTyping(chatId: String) {
+        val token = connectorManager.getToken("telegram") ?: return
+        try {
+            httpClient.post("https://api.telegram.org/bot$token/sendChatAction") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("chat_id", JsonPrimitive(chatId.toLong()))
+                        put("action", JsonPrimitive("typing"))
+                    }.toString(),
+                )
+            }
+        } catch (_: Exception) {
+            // Best-effort — don't fail if typing indicator fails
         }
     }
 
