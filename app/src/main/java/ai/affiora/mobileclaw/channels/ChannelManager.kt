@@ -6,13 +6,17 @@ import android.content.Context
 import android.util.Log
 import ai.affiora.mobileclaw.MobileClawApplication
 import ai.affiora.mobileclaw.agent.ClaudeApiClient
+import ai.affiora.mobileclaw.agent.PermissionManager
 import ai.affiora.mobileclaw.agent.SystemPromptBuilder
 import ai.affiora.mobileclaw.data.model.ClaudeContent
 import ai.affiora.mobileclaw.data.model.ClaudeMessage
 import ai.affiora.mobileclaw.data.model.ClaudeRequest
+import ai.affiora.mobileclaw.data.model.ClaudeTool
 import ai.affiora.mobileclaw.data.model.ContentBlock
 import ai.affiora.mobileclaw.data.model.ImageSource
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
+import ai.affiora.mobileclaw.tools.AndroidTool
+import ai.affiora.mobileclaw.tools.ToolResult
 import androidx.core.app.NotificationCompat
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -29,6 +33,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -54,6 +59,8 @@ class ChannelManager @Inject constructor(
     private val userPreferences: UserPreferences,
     private val systemPromptBuilder: SystemPromptBuilder,
     private val httpClient: HttpClient,
+    private val toolRegistry: Map<String, @JvmSuppressWildcards AndroidTool>,
+    private val permissionManager: PermissionManager,
 ) {
     companion object {
         private const val TAG = "ChannelManager"
@@ -261,14 +268,13 @@ class ChannelManager @Inject constructor(
             .replace("\r", " ")
             .take(50)
 
-        // Build system prompt with channel context — text-only but tool-aware
+        // Build system prompt with channel context — full tool access
         val systemPrompt = systemPromptBuilder.build() +
             "\n\nYou are responding via ${channel.displayName} to $safeSenderName. " +
-            "In this channel you respond with text only — you cannot directly execute phone tools like camera, SMS, calls, etc. " +
-            "When the user asks for something you can't do here (take a photo, send SMS, set alarm, etc.), " +
-            "say: \"I'll need to do that from the MobileClaw app on the device. Open the app and ask me there!\" " +
-            "Never say you lack permissions or capability — you DO have those abilities, just not through this channel. " +
-            "Keep responses concise (under 4000 characters)."
+            "You have full access to all phone tools. You can take photos, send SMS, check calendar, " +
+            "control the phone, etc. — just like in the main app. " +
+            "Tool confirmations are auto-approved based on the user's permission settings. " +
+            "Keep text responses concise (under 4000 characters)."
 
         // Build user message text, appending media descriptions if present
         val userMessageText = if (msg.mediaDescription != null) {
@@ -277,11 +283,14 @@ class ChannelManager @Inject constructor(
             msg.text
         }
 
-        // Send typing indicator for Telegram
-        (channel as? TelegramChannel)?.sendTyping(msg.chatId)
-
-        // Generate response directly via API — no tool loop, no AgentRuntime contention
-        val reply = generateResponse(userMessageText, claudeHistory, systemPrompt, msg.imageBase64)
+        // Generate response with full tool loop — independent from AgentRuntime
+        val reply = generateResponse(
+            text = userMessageText,
+            history = claudeHistory,
+            systemPrompt = systemPrompt,
+            imageBase64 = msg.imageBase64,
+            sendTyping = { (channel as? TelegramChannel)?.sendTyping(msg.chatId) },
+        )
 
         if (reply.isNotBlank()) {
             channel.sendMessage(msg.chatId, reply)
@@ -298,17 +307,27 @@ class ChannelManager @Inject constructor(
     }
 
     /**
-     * Generate a text-only response via ClaudeApiClient directly.
-     * No tools, no AgentRuntime — independent from Chat UI.
+     * Generate a response with full tool access via ClaudeApiClient.
+     * Runs its own tool loop — independent from AgentRuntime / Chat UI.
      */
     private suspend fun generateResponse(
         text: String,
         history: List<ClaudeMessage>,
         systemPrompt: String,
         imageBase64: String?,
+        sendTyping: (suspend () -> Unit)? = null,
     ): String {
         return try {
             val model = userPreferences.selectedModel.first()
+
+            // Build tool definitions from registry
+            val claudeTools = toolRegistry.values.map { tool ->
+                ClaudeTool(
+                    name = tool.name,
+                    description = tool.description,
+                    inputSchema = tool.parameters,
+                )
+            }
 
             // Build user content — text or text+image
             val userContent: ClaudeContent = if (imageBase64 != null) {
@@ -328,26 +347,120 @@ class ChannelManager @Inject constructor(
                 ClaudeContent.Text(text)
             }
 
-            val messages = history + ClaudeMessage("user", userContent)
+            val messages = (history + ClaudeMessage("user", userContent)).toMutableList()
+            val responseText = StringBuilder()
 
-            val response = claudeApiClient.sendMessage(
-                ClaudeRequest(
-                    model = model,
-                    messages = messages,
-                    system = systemPrompt,
-                    maxTokens = 2048,
-                    tools = null, // NO tools for channel responses
-                ),
-            )
-            response.content
-                .filterIsInstance<ContentBlock.TextBlock>()
-                .joinToString("") { it.text }
-                .trim()
+            // Tool use loop (max 20 iterations — shorter than Chat UI's 200)
+            repeat(20) {
+                // Send typing indicator before each API call
+                try { sendTyping?.invoke() } catch (_: Exception) {}
+
+                val response = claudeApiClient.sendMessage(
+                    ClaudeRequest(
+                        model = model,
+                        messages = messages,
+                        system = systemPrompt,
+                        maxTokens = 4096,
+                        tools = claudeTools.ifEmpty { null },
+                    ),
+                )
+
+                val toolResultBlocks = mutableListOf<ContentBlock>()
+                var hasToolUse = false
+
+                for (block in response.content) {
+                    when (block) {
+                        is ContentBlock.TextBlock -> responseText.append(block.text)
+                        is ContentBlock.ToolUseBlock -> {
+                            hasToolUse = true
+                            val inputMap = block.input.toMap()
+                                .filterKeys { it != "__confirmed" }
+
+                            Log.d(TAG, "Channel tool call: ${block.name}, input: $inputMap")
+
+                            val tool = toolRegistry[block.name]
+                            val resultContent = if (tool != null) {
+                                executeTool(tool, inputMap)
+                            } else {
+                                "Error: Unknown tool '${block.name}'"
+                            }
+
+                            // Cap tool result size
+                            val capped = if (resultContent.length > 100_000) {
+                                resultContent.take(100_000) + "\n[Truncated: ${resultContent.length} chars total]"
+                            } else {
+                                resultContent
+                            }
+
+                            toolResultBlocks.add(
+                                ContentBlock.ToolResultBlock(
+                                    toolUseId = block.id,
+                                    content = capped,
+                                ),
+                            )
+                        }
+                        else -> {}
+                    }
+                }
+
+                // Add assistant response to history
+                messages.add(ClaudeMessage("assistant", ClaudeContent.ContentList(response.content)))
+
+                // If no tool use or end_turn, we're done
+                if (!hasToolUse || response.stopReason == "end_turn") return@repeat
+
+                // Add tool results as user message
+                if (toolResultBlocks.isNotEmpty()) {
+                    messages.add(ClaudeMessage("user", ClaudeContent.ContentList(toolResultBlocks)))
+                }
+            }
+
+            responseText.toString().trim().ifBlank { "Done." }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to generate channel response", e)
-            "Sorry, I encountered an error. Please try again."
+            "Sorry, something went wrong. Please try again."
+        }
+    }
+
+    /**
+     * Execute a single tool, handling confirmation flow based on PermissionManager.
+     */
+    private suspend fun executeTool(
+        tool: AndroidTool,
+        inputMap: Map<String, kotlinx.serialization.json.JsonElement>,
+    ): String {
+        val result = try {
+            tool.execute(inputMap)
+        } catch (e: Exception) {
+            return "Error: Tool execution failed: ${e.message}"
+        }
+
+        return when (result) {
+            is ToolResult.Success -> result.data
+            is ToolResult.Error -> "Error: ${result.message}"
+            is ToolResult.NeedsConfirmation -> {
+                if (permissionManager.shouldAutoApprove(tool.name)) {
+                    // Auto-approve based on permission settings
+                    val confirmedParams = inputMap.toMutableMap()
+                    confirmedParams["__confirmed"] = JsonPrimitive(true)
+                    val confirmed = try {
+                        tool.execute(confirmedParams)
+                    } catch (e: Exception) {
+                        return "Error: Confirmed execution failed: ${e.message}"
+                    }
+                    when (confirmed) {
+                        is ToolResult.Success -> confirmed.data
+                        is ToolResult.Error -> "Error: ${confirmed.message}"
+                        is ToolResult.NeedsConfirmation ->
+                            "Error: Tool requested confirmation again after being confirmed"
+                    }
+                } else {
+                    "This action requires confirmation. Open MobileClaw app to approve, " +
+                        "or set permission mode to 'Bypass All' in Settings."
+                }
+            }
         }
     }
 
