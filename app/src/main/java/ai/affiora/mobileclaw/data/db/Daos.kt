@@ -81,6 +81,12 @@ interface ChatMessageDao {
 
     @Query("DELETE FROM chat_messages WHERE conversationId = :conversationId")
     suspend fun deleteByConversation(conversationId: String)
+
+    @Query("SELECT * FROM chat_messages WHERE content LIKE '%' || :query || '%' ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun searchMessages(query: String, limit: Int): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM chat_messages WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentMessagesByConversation(conversationId: String, limit: Int): List<ChatMessageEntity>
 }
 
 @Dao
@@ -103,6 +109,9 @@ interface ConversationDao {
 
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("SELECT * FROM conversations ORDER BY updatedAt DESC LIMIT :limit")
+    suspend fun getRecentConversations(limit: Int): List<ConversationEntity>
 }
 
 @Dao

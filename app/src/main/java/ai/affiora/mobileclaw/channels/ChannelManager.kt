@@ -14,10 +14,24 @@ import ai.affiora.mobileclaw.data.model.ContentBlock
 import ai.affiora.mobileclaw.data.model.ImageSource
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import androidx.core.app.NotificationCompat
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +53,7 @@ class ChannelManager @Inject constructor(
     private val claudeApiClient: ClaudeApiClient,
     private val userPreferences: UserPreferences,
     private val systemPromptBuilder: SystemPromptBuilder,
+    private val httpClient: HttpClient,
 ) {
     companion object {
         private const val TAG = "ChannelManager"
@@ -277,6 +292,11 @@ class ChannelManager @Inject constructor(
                 while (history.size > MAX_HISTORY) history.removeAt(0)
             }
         }
+
+        // GAP 8: If user asked for image generation and OpenAI key is available, generate and send
+        if (isImageRequest(msg.text)) {
+            generateAndSendImage(channel, msg.chatId, msg.text)
+        }
     }
 
     /**
@@ -331,6 +351,61 @@ class ChannelManager @Inject constructor(
             Log.e(TAG, "Failed to generate channel response", e)
             "Sorry, I encountered an error. Please try again."
         }
+    }
+
+    // ── Image generation for channels ──
+
+    private fun isImageRequest(text: String): Boolean {
+        val lower = text.lowercase()
+        return lower.contains("generate image") || lower.contains("generate an image") ||
+            lower.contains("create image") || lower.contains("create an image") ||
+            lower.contains("make an image") || lower.contains("draw me") ||
+            lower.contains("draw a ") || lower.contains("draw an ") ||
+            lower.contains("生成圖") || lower.contains("畫一") || lower.contains("畫個")
+    }
+
+    private val jsonParser = Json { ignoreUnknownKeys = true }
+
+    private suspend fun generateAndSendImage(channel: Channel, chatId: String, prompt: String) {
+        val openaiKey = userPreferences.getTokenForProvider("openai")
+        if (openaiKey.isBlank()) return
+
+        try {
+            val requestBody = """{"model":"dall-e-3","prompt":${jsonEscapeString(prompt)},"n":1,"size":"1024x1024"}"""
+            val response = httpClient.post("https://api.openai.com/v1/images/generations") {
+                header("Authorization", "Bearer $openaiKey")
+                contentType(ContentType.Application.Json)
+                setBody(requestBody)
+            }
+            val json = jsonParser.decodeFromString<JsonObject>(response.bodyAsText())
+            val imageUrl = json["data"]?.jsonArray?.firstOrNull()
+                ?.jsonObject?.get("url")?.jsonPrimitive?.content ?: return
+
+            val imageBytes = httpClient.get(imageUrl).readRawBytes()
+            channel.sendPhoto(chatId, imageBytes, prompt.take(200))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Image generation failed: ${e.message}")
+            channel.sendMessage(chatId, "Sorry, image generation failed. Please try in the app.")
+        }
+    }
+
+    /** Escape a string for safe JSON embedding. */
+    private fun jsonEscapeString(s: String): String {
+        val sb = StringBuilder("\"")
+        for (ch in s) {
+            when (ch) {
+                '"' -> sb.append("\\\"")
+                '\\' -> sb.append("\\\\")
+                '\n' -> sb.append("\\n")
+                '\r' -> sb.append("\\r")
+                '\t' -> sb.append("\\t")
+                else -> sb.append(ch)
+            }
+        }
+        sb.append("\"")
+        return sb.toString()
     }
 
     // ── Pairing request management ──

@@ -10,6 +10,11 @@ import ai.affiora.mobileclaw.tools.CalendarTool
 import ai.affiora.mobileclaw.tools.ChannelTool
 import ai.affiora.mobileclaw.channels.ChannelManager
 import ai.affiora.mobileclaw.tools.CallLogTool
+import ai.affiora.mobileclaw.tools.SubAgentTool
+import ai.affiora.mobileclaw.tools.SessionHistoryTool
+import ai.affiora.mobileclaw.agent.ClaudeApiClient
+import ai.affiora.mobileclaw.data.db.ChatMessageDao
+import ai.affiora.mobileclaw.data.db.ConversationDao
 import ai.affiora.mobileclaw.tools.MemoryTool
 import ai.affiora.mobileclaw.tools.ClipboardTool
 import ai.affiora.mobileclaw.tools.ContactsTool
@@ -260,6 +265,24 @@ object ToolsModule {
 
     @Provides
     @Singleton
+    fun provideSubAgentTool(
+        claudeApiClient: ClaudeApiClient,
+        userPreferences: UserPreferences,
+    ): SubAgentTool {
+        return SubAgentTool(claudeApiClient, userPreferences)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSessionHistoryTool(
+        chatMessageDao: ChatMessageDao,
+        conversationDao: ConversationDao,
+    ): SessionHistoryTool {
+        return SessionHistoryTool(chatMessageDao, conversationDao)
+    }
+
+    @Provides
+    @Singleton
     fun provideToolRegistry(
         smsTool: SmsTool,
         callLogTool: CallLogTool,
@@ -288,6 +311,8 @@ object ToolsModule {
         telegramTool: TelegramTool,
         memoryTool: MemoryTool,
         channelTool: ChannelTool,
+        subAgentTool: SubAgentTool,
+        sessionHistoryTool: SessionHistoryTool,
     ): Map<String, AndroidTool> {
         val tools: List<AndroidTool> = listOf(
             smsTool,
@@ -317,6 +342,8 @@ object ToolsModule {
             telegramTool,
             memoryTool,
             channelTool,
+            subAgentTool,
+            sessionHistoryTool,
         )
         return tools.associateBy { it.name }
     }
