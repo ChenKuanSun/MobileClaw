@@ -140,6 +140,14 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
+    // Consume shared intent data (ACTION_SEND from other apps)
+    LaunchedEffect(Unit) {
+        val (text, _) = ai.affiora.mobileclaw.ui.SharedIntentData.consume()
+        if (text != null) {
+            inputText = text
+        }
+    }
+
     // Search state
     var isSearchVisible by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -326,6 +334,8 @@ fun ChatScreen(
                                     else -> {}
                                 }
                             },
+                            onRetry = { text -> viewModel.sendMessage(text) },
+                            onDelete = { id -> viewModel.deleteMessage(id) },
                         )
                     }
 

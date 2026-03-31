@@ -1,6 +1,7 @@
 package ai.affiora.mobileclaw.ui
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleShareIntent(intent)
         handleOAuthRedirect(intent)
 
         // Start AgentService (runs channels, scheduled tasks)
@@ -57,7 +59,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        handleShareIntent(intent)
         handleOAuthRedirect(intent)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun handleShareIntent(intent: Intent) {
+        if (intent.action != Intent.ACTION_SEND) return
+
+        val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+        val sharedImageUri: Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+
+        if (sharedText != null) {
+            SharedIntentData.pendingText = sharedText
+        }
+        if (sharedImageUri != null) {
+            SharedIntentData.pendingImageUri = sharedImageUri
+        }
     }
 
     private fun handleOAuthRedirect(intent: Intent) {

@@ -28,6 +28,13 @@ import ai.affiora.mobileclaw.data.model.ToolActivity
 import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import ai.affiora.mobileclaw.agent.SystemPromptBuilder
 import ai.affiora.mobileclaw.tools.ToolResult
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import androidx.core.app.NotificationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import ai.affiora.mobileclaw.MobileClawApplication
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -548,6 +555,36 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun deleteMessage(messageId: String) {
+        viewModelScope.launch {
+            val entity = chatMessageDao.getMessageById(messageId)
+            if (entity != null) {
+                chatMessageDao.delete(entity)
+            }
+        }
+    }
+
+    private fun isAppInForeground(): Boolean {
+        return ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+    }
+
+    private fun showCompletionNotification() {
+        val manager = application.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val intent = application.packageManager.getLaunchIntentForPackage(application.packageName)
+        val pendingIntent = PendingIntent.getActivity(
+            application, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(application, MobileClawApplication.CHANNEL_AGENT_ALERTS)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Task completed")
+            .setContentText("MobileClaw finished processing your request.")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(3001, notification)
+    }
+
     private fun handleSlashCommand(text: String) {
         val parts = text.trimStart('/').split(" ", limit = 2)
         val commandName = "/${parts[0]}"
@@ -623,6 +660,11 @@ class ChatViewModel @Inject constructor(
                 streamingMessageId = null
                 streamingText.clear()
 
+                // Notify if app is in background
+                if (!isAppInForeground()) {
+                    showCompletionNotification()
+                }
+
                 // Process queued messages
                 if (messageQueue.isNotEmpty()) {
                     val next = messageQueue.removeAt(0)
@@ -683,6 +725,11 @@ class ChatViewModel @Inject constructor(
                 _connectionStatus.value = ConnectionStatus.CONNECTED
                 streamingMessageId = null
                 streamingText.clear()
+
+                // Notify if app is in background
+                if (!isAppInForeground()) {
+                    showCompletionNotification()
+                }
 
                 if (messageQueue.isNotEmpty()) {
                     val next = messageQueue.removeAt(0)

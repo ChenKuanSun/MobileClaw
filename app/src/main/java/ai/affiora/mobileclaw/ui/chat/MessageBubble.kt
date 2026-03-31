@@ -41,9 +41,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -92,6 +98,8 @@ fun MessageBubble(
     isSpeaking: Boolean = false,
     onSpeak: ((String, String) -> Unit)? = null,
     onActionClicked: ((MessageAction) -> Unit)? = null,
+    onRetry: ((String) -> Unit)? = null,
+    onDelete: ((String) -> Unit)? = null,
 ) {
     val isUser = message.role == MessageRole.USER
     val isToolResult = message.role == MessageRole.TOOL_RESULT
@@ -121,6 +129,8 @@ fun MessageBubble(
                 onActionClicked = onActionClicked,
                 isSpeaking = if (isAssistant) isSpeaking else false,
                 onSpeak = if (isAssistant) onSpeak else null,
+                onRetry = onRetry,
+                onDelete = onDelete,
             )
         }
     }
@@ -135,6 +145,8 @@ private fun StandardBubble(
     onActionClicked: ((MessageAction) -> Unit)? = null,
     isSpeaking: Boolean = false,
     onSpeak: ((String, String) -> Unit)? = null,
+    onRetry: ((String) -> Unit)? = null,
+    onDelete: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val backgroundColor = when {
@@ -162,6 +174,9 @@ private fun StandardBubble(
         segments.filterIsInstance<ContentSegment.Text>().joinToString("\n") { it.text }
     }
 
+    var showMenu by remember { mutableStateOf(false) }
+
+    Box {
     Surface(
         shape = shape,
         color = backgroundColor,
@@ -169,11 +184,7 @@ private fun StandardBubble(
             .widthIn(max = 300.dp)
             .combinedClickable(
                 onClick = {},
-                onLongClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("MobileClaw", plainText))
-                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                },
+                onLongClick = { showMenu = true },
             ),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -248,6 +259,60 @@ private fun StandardBubble(
             }
         }
     }
+
+    // Long-press context menu
+    DropdownMenu(
+        expanded = showMenu,
+        onDismissRequest = { showMenu = false },
+    ) {
+        DropdownMenuItem(
+            text = { Text("Copy") },
+            onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("MobileClaw", plainText))
+                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                showMenu = false
+            },
+            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+        )
+        if (isUser && onRetry != null) {
+            DropdownMenuItem(
+                text = { Text("Retry") },
+                onClick = {
+                    onRetry(message.content)
+                    showMenu = false
+                },
+                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("Share") },
+            onClick = {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, plainText)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val chooser = Intent.createChooser(shareIntent, "Share message").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(chooser)
+                showMenu = false
+            },
+            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+        )
+        if (onDelete != null) {
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                onClick = {
+                    onDelete(message.id)
+                    showMenu = false
+                },
+                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            )
+        }
+    }
+    } // close Box
 }
 
 // ── Tool Activity Row (collapsible inline indicator) ─────────────────────────

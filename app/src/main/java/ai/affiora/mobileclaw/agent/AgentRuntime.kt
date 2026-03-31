@@ -81,8 +81,9 @@ class AgentRuntime @Inject constructor(
                 else -> 500 // rough estimate for non-text
             }
         }
-        if (historyChars > 200_000) {
-            emit(AgentEvent.Error("Conversation very long. Consider using /compact or starting a new conversation."))
+        when {
+            historyChars > 200_000 -> emit(AgentEvent.Error("Approaching context limit. Use /compact or start a new conversation."))
+            historyChars > 120_000 -> emit(AgentEvent.Error("Conversation getting long (~${historyChars / 4000}K tokens). Consider using /compact."))
         }
 
         var iterations = 0
@@ -343,8 +344,9 @@ class AgentRuntime @Inject constructor(
                 else -> 500 // rough estimate for non-text
             }
         }
-        if (historyChars > 200_000) {
-            emit(AgentEvent.Error("Conversation very long. Consider using /compact or starting a new conversation."))
+        when {
+            historyChars > 200_000 -> emit(AgentEvent.Error("Approaching context limit. Use /compact or start a new conversation."))
+            historyChars > 120_000 -> emit(AgentEvent.Error("Conversation getting long (~${historyChars / 4000}K tokens). Consider using /compact."))
         }
 
         var iterations = 0
@@ -502,6 +504,10 @@ class AgentRuntime @Inject constructor(
                         },
                         onThinkingStarted = {
                             deltaChannel.trySend(AgentEvent.Thinking(""))
+                        },
+                        onRetry = { attempt, statusCode, delayMs ->
+                            val delaySec = delayMs / 1000
+                            deltaChannel.trySend(AgentEvent.Error("Retrying (attempt $attempt) after error $statusCode — waiting ${delaySec}s..."))
                         },
                     )
                     // Signal completion by sending the response through the channel

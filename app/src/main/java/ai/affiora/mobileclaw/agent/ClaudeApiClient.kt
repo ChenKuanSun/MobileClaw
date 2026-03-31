@@ -85,7 +85,10 @@ class ClaudeApiClient @Inject constructor(
             "You are Claude Code, Anthropic's official CLI for Claude."
     }
 
-    private suspend fun <T> withRetry(block: suspend () -> T): T {
+    private suspend fun <T> withRetry(
+        onRetry: ((attempt: Int, statusCode: Int, delayMs: Long) -> Unit)? = null,
+        block: suspend () -> T,
+    ): T {
         var lastException: Exception? = null
         repeat(MAX_RETRIES + 1) { attempt ->
             try {
@@ -98,6 +101,7 @@ class ClaudeApiClient @Inject constructor(
                 val jitter = Random.nextLong(0, baseDelayMs / 2)
                 val totalDelay = baseDelayMs + jitter
                 Log.w(TAG, "Retryable error ${e.statusCode}, attempt ${attempt + 1}/$MAX_RETRIES, backing off ${totalDelay}ms")
+                onRetry?.invoke(attempt + 1, e.statusCode, totalDelay)
                 delay(totalDelay)
             }
         }
@@ -108,6 +112,7 @@ class ClaudeApiClient @Inject constructor(
         request: ClaudeRequest,
         onTextDelta: ((String) -> Unit)? = null,
         onThinkingStarted: (() -> Unit)? = null,
+        onRetry: ((attempt: Int, statusCode: Int, delayMs: Long) -> Unit)? = null,
     ): ClaudeResponse {
         val apiKey = userPreferences.apiKey.first()
         val providerId = userPreferences.selectedProvider.first()
@@ -118,9 +123,9 @@ class ClaudeApiClient @Inject constructor(
         }
 
         return when {
-            provider.isAnthropic -> withRetry { sendAnthropicSdk(request, apiKey, provider, onTextDelta, onThinkingStarted) }
-            provider == AiProvider.GOOGLE -> withRetry { sendGoogle(request, apiKey, provider) }
-            else -> withRetry { sendOpenAiCompatible(request, apiKey, provider) }
+            provider.isAnthropic -> withRetry(onRetry) { sendAnthropicSdk(request, apiKey, provider, onTextDelta, onThinkingStarted) }
+            provider == AiProvider.GOOGLE -> withRetry(onRetry) { sendGoogle(request, apiKey, provider) }
+            else -> withRetry(onRetry) { sendOpenAiCompatible(request, apiKey, provider) }
         }
     }
 

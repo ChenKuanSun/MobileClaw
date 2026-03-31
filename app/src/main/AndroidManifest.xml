@@ -80,6 +80,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="mobileclaw" android:host="oauth" android:path="/callback" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
 
         <!-- AppAuth Redirect Handler -->
