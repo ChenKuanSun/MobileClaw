@@ -10,6 +10,7 @@ import ai.affiora.mobileclaw.tools.CalendarTool
 import ai.affiora.mobileclaw.tools.ChannelTool
 import ai.affiora.mobileclaw.channels.ChannelManager
 import ai.affiora.mobileclaw.tools.CallLogTool
+import ai.affiora.mobileclaw.tools.MemoryTool
 import ai.affiora.mobileclaw.tools.ClipboardTool
 import ai.affiora.mobileclaw.tools.ContactsTool
 import ai.affiora.mobileclaw.tools.FileSystemTool
@@ -244,6 +245,12 @@ object ToolsModule {
 
     @Provides
     @Singleton
+    fun provideMemoryTool(@ApplicationContext context: Context): MemoryTool {
+        return MemoryTool(context)
+    }
+
+    @Provides
+    @Singleton
     fun provideChannelTool(
         channelManager: dagger.Lazy<ChannelManager>,
         @ApplicationContext context: Context,
@@ -279,6 +286,7 @@ object ToolsModule {
         openAiTool: OpenAiTool,
         photoTool: PhotoTool,
         telegramTool: TelegramTool,
+        memoryTool: MemoryTool,
         channelTool: ChannelTool,
     ): Map<String, AndroidTool> {
         val tools: List<AndroidTool> = listOf(
@@ -307,6 +315,7 @@ object ToolsModule {
             openAiTool,
             photoTool,
             telegramTool,
+            memoryTool,
             channelTool,
         )
         return tools.associateBy { it.name }

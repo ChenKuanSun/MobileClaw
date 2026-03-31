@@ -133,15 +133,16 @@ class ClaudeApiClient @Inject constructor(
 
         // 4.6 models use adaptive thinking and don't need interleaved-thinking beta
         val interleavedBeta = if (isAdaptiveModel) "" else ",interleaved-thinking-2025-05-14"
+        val compactBeta = ",compact-2026-01-12"
 
         if (isOAuth) {
             builder.authToken(apiKey)
-            builder.putHeader("anthropic-beta", "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14$interleavedBeta")
+            builder.putHeader("anthropic-beta", "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14$interleavedBeta$compactBeta")
             builder.putHeader("user-agent", "claude-cli/2.1.75")
             builder.putHeader("x-app", "cli")
         } else {
             builder.apiKey(apiKey)
-            builder.putHeader("anthropic-beta", "fine-grained-tool-streaming-2025-05-14$interleavedBeta")
+            builder.putHeader("anthropic-beta", "fine-grained-tool-streaming-2025-05-14$interleavedBeta$compactBeta")
         }
         builder.putHeader("anthropic-dangerous-direct-browser-access", "true")
 
@@ -216,6 +217,11 @@ class ClaudeApiClient @Inject constructor(
                 }
                 paramsBuilder.putAdditionalBodyProperty("tools", JsonValue.from(rawTools))
             }
+
+            // Enable server-side compaction — API automatically summarizes older context
+            paramsBuilder.putAdditionalBodyProperty("context_management", JsonValue.from(mapOf(
+                "edits" to listOf(mapOf("type" to "compact_20260112"))
+            )))
 
             // Enable thinking — 4.6 models use adaptive, others use explicit budget
             if (isAdaptiveModel) {

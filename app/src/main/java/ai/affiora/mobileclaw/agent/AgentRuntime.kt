@@ -74,18 +74,15 @@ class AgentRuntime @Inject constructor(
             )
         )
 
-        // FIX 9: Context window overflow protection — trim before starting the loop
+        // Context length warning — server-side compaction handles actual trimming
         val historyChars = messages.sumOf { msg ->
             when (val c = msg.content) {
                 is ClaudeContent.Text -> c.text.length
                 else -> 500 // rough estimate for non-text
             }
         }
-        if (historyChars > 150_000) {
-            val trimmed = listOf(messages.first()) + messages.takeLast(10)
-            messages.clear()
-            messages.addAll(trimmed)
-            emit(AgentEvent.Error("Conversation too long. Older messages trimmed. Use /compact to summarize."))
+        if (historyChars > 200_000) {
+            emit(AgentEvent.Error("Conversation very long. Consider using /compact or starting a new conversation."))
         }
 
         var iterations = 0
@@ -339,18 +336,15 @@ class AgentRuntime @Inject constructor(
 
         val messages = conversationHistory.toMutableList()
 
-        // FIX 9: Context window overflow protection — trim before starting the loop
+        // Context length warning — server-side compaction handles actual trimming
         val historyChars = messages.sumOf { msg ->
             when (val c = msg.content) {
                 is ClaudeContent.Text -> c.text.length
                 else -> 500 // rough estimate for non-text
             }
         }
-        if (historyChars > 150_000) {
-            val trimmed = listOf(messages.first()) + messages.takeLast(10)
-            messages.clear()
-            messages.addAll(trimmed)
-            emit(AgentEvent.Error("Conversation too long. Older messages trimmed. Use /compact to summarize."))
+        if (historyChars > 200_000) {
+            emit(AgentEvent.Error("Conversation very long. Consider using /compact or starting a new conversation."))
         }
 
         var iterations = 0

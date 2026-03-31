@@ -5,7 +5,9 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.util.Log
 import ai.affiora.mobileclaw.connectors.ConnectorManager
+import ai.affiora.mobileclaw.data.prefs.UserPreferences
 import io.ktor.client.HttpClient
+import io.ktor.client.request.header
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
@@ -35,6 +37,7 @@ class TelegramChannel(
     private val connectorManager: ConnectorManager,
     private val httpClient: HttpClient,
     private val context: Context,
+    private val userPreferences: UserPreferences,
 ) : Channel {
 
     override val id = "telegram"
@@ -50,6 +53,7 @@ class TelegramChannel(
     private val json = Json { ignoreUnknownKeys = true }
     private val pairedSenders = mutableSetOf<String>()
     private var connectivityCallback: ConnectivityManager.NetworkCallback? = null
+    private var cachedBotUsername: String? = null
 
     companion object {
         private const val TAG = "TelegramChannel"
@@ -115,10 +119,33 @@ class TelegramChannel(
                     for (update in apiResponse.result) {
                         val msg = update.message ?: continue
 
-                        val text = msg.text ?: msg.caption ?: ""
+                        var text = msg.text ?: msg.caption ?: ""
                         val photoFileId = msg.photo?.lastOrNull()?.fileId
                         val docFileId = msg.document?.fileId
                         val voiceFileId = msg.voice?.fileId
+
+                        // Group message filtering — only respond when @mentioned
+                        val isGroup = msg.chat.type in listOf("group", "supergroup")
+                        if (isGroup) {
+                            val botUsername = getBotUsername(token)
+                            if (botUsername.isNotEmpty()) {
+                                val mentioned = text.contains("@$botUsername", ignoreCase = true) ||
+                                    msg.entities?.any { entity ->
+                                        entity.type == "mention" &&
+                                            text.substring(entity.offset, (entity.offset + entity.length).coerceAtMost(text.length))
+                                                .equals("@$botUsername", ignoreCase = true)
+                                    } == true
+
+                                if (!mentioned) {
+                                    offset = update.updateId + 1
+                                    saveOffset(offset)
+                                    continue
+                                }
+
+                                // Strip the @mention from the text
+                                text = text.replace("@$botUsername", "", ignoreCase = true).trim()
+                            }
+                        }
 
                         // Skip completely empty messages
                         if (text.isBlank() && photoFileId == null && docFileId == null && voiceFileId == null) {
@@ -156,9 +183,15 @@ class TelegramChannel(
                             mediaDescriptions.add("Document: ${msg.document?.fileName ?: "unknown"}")
                         }
 
-                        // Note voice
+                        // Transcribe voice via Whisper or fall back to description
                         if (voiceFileId != null) {
-                            mediaDescriptions.add("Voice message, ${msg.voice?.duration}s")
+                            val transcript = transcribeVoice(token, voiceFileId)
+                            if (transcript != null) {
+                                messageText += if (messageText.isBlank()) transcript else "\n$transcript"
+                                mediaDescriptions.add("Voice message transcribed, ${msg.voice?.duration}s")
+                            } else {
+                                mediaDescriptions.add("Voice message, ${msg.voice?.duration}s — transcription unavailable")
+                            }
                         }
 
                         val mediaDesc = mediaDescriptions.joinToString("; ").ifBlank { null }
@@ -377,6 +410,20 @@ class TelegramChannel(
         }
     }
 
+    private suspend fun getBotUsername(token: String): String {
+        cachedBotUsername?.let { return it }
+        return try {
+            val response = httpClient.get("https://api.telegram.org/bot$token/getMe")
+            val result = json.decodeFromString<TgGetMeResponse>(response.bodyAsText())
+            val username = result.result?.username ?: ""
+            cachedBotUsername = username
+            username
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get bot username: ${e.message}")
+            ""
+        }
+    }
+
     private suspend fun handleBotCommand(token: String, msg: TgMessage, text: String) {
         val chatId = msg.chat.id.toString()
         val senderId = msg.chat.id.toString()
@@ -444,6 +491,42 @@ class TelegramChannel(
                 // Unknown command — ignore silently
             }
         }
+    }
+
+    // ── Voice Transcription via Whisper ──
+
+    private suspend fun transcribeVoice(token: String, fileId: String): String? {
+        val audioBytes = downloadFile(token, fileId) ?: return null
+
+        val openaiKey = userPreferences.getTokenForProvider("openai")
+        if (openaiKey.isBlank()) return null
+
+        return try {
+            val boundary = "----Whisper${System.currentTimeMillis()}"
+            val body = buildWhisperMultipart(boundary, audioBytes)
+            val response = httpClient.post("https://api.openai.com/v1/audio/transcriptions") {
+                header("Authorization", "Bearer $openaiKey")
+                header("Content-Type", "multipart/form-data; boundary=$boundary")
+                setBody(body)
+            }
+            val result = json.decodeFromString<kotlinx.serialization.json.JsonObject>(response.bodyAsText())
+            result["text"]?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+        } catch (e: Exception) {
+            Log.e(TAG, "Whisper transcription failed: ${e.message}")
+            null
+        }
+    }
+
+    private fun buildWhisperMultipart(boundary: String, audioBytes: ByteArray): ByteArray {
+        val sb = StringBuilder()
+        sb.append("--$boundary\r\n")
+        sb.append("Content-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n")
+        sb.append("--$boundary\r\n")
+        sb.append("Content-Disposition: form-data; name=\"file\"; filename=\"voice.ogg\"\r\n")
+        sb.append("Content-Type: audio/ogg\r\n\r\n")
+        val prefix = sb.toString().toByteArray()
+        val suffix = "\r\n--$boundary--\r\n".toByteArray()
+        return prefix + audioBytes + suffix
     }
 
     // ── Media Download ──
@@ -516,6 +599,14 @@ private data class TgMessage(
     val photo: List<TgPhotoSize>? = null,
     val document: TgDocument? = null,
     val voice: TgVoice? = null,
+    val entities: List<TgMessageEntity>? = null,
+)
+
+@Serializable
+private data class TgMessageEntity(
+    val type: String,
+    val offset: Int,
+    val length: Int,
 )
 
 @Serializable
@@ -528,6 +619,13 @@ private data class TgChat(
 private data class TgUser(
     val id: Long,
     @SerialName("first_name") val firstName: String = "",
+    val username: String? = null,
+)
+
+@Serializable
+private data class TgGetMeResponse(
+    val ok: Boolean,
+    val result: TgUser? = null,
 )
 
 @Serializable
