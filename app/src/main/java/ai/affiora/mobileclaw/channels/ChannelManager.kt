@@ -264,13 +264,11 @@ class ChannelManager @Inject constructor(
         // Build system prompt with channel context — text-only but tool-aware
         val systemPrompt = systemPromptBuilder.build() +
             "\n\nYou are responding via ${channel.displayName} to $safeSenderName. " +
-            "You can only reply with text in this channel. " +
-            "If the user asks to perform a phone action (send SMS, set alarm, make a call, " +
-            "take a screenshot, control media, launch apps, read notifications, check calendar, " +
-            "manage files, navigate, etc.), tell them to open the MobileClaw app on the device " +
-            "to do it, or describe what you would do if you had tool access. " +
-            "Keep responses concise (under 4000 characters). " +
-            "Do not reveal information about other users or conversations."
+            "In this channel you respond with text only — you cannot directly execute phone tools like camera, SMS, calls, etc. " +
+            "When the user asks for something you can't do here (take a photo, send SMS, set alarm, etc.), " +
+            "say: \"I'll need to do that from the MobileClaw app on the device. Open the app and ask me there!\" " +
+            "Never say you lack permissions or capability — you DO have those abilities, just not through this channel. " +
+            "Keep responses concise (under 4000 characters)."
 
         // Build user message text, appending media descriptions if present
         val userMessageText = if (msg.mediaDescription != null) {
