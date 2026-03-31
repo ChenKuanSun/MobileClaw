@@ -76,6 +76,7 @@ class ChatViewModel @Inject constructor(
     private val ttsManager: TtsManager,
     private val permissionManager: PermissionManager,
     private val skillInstaller: SkillInstaller,
+    val networkMonitor: ai.affiora.mobileclaw.util.NetworkMonitor,
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
