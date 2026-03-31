@@ -414,27 +414,33 @@ private fun PermissionsPage(
             textAlign = TextAlign.Center,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        dangerousPermissions.forEach { permission ->
-            val granted = permissionResults[permission.permission]
-            PermissionRow(permission = permission, granted = granted)
-            Spacer(modifier = Modifier.height(12.dp))
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(dangerousPermissions.size) { index ->
+                val permission = dangerousPermissions[index]
+                val granted = permissionResults[permission.permission]
+                PermissionRow(permission = permission, granted = granted)
+            }
+
+            if (hasRequested) {
+                item {
+                    val grantedCount = permissionResults.count { it.value }
+                    val deniedCount = permissionResults.count { !it.value }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.onboarding_permissions_result, grantedCount, deniedCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
-
-        if (hasRequested) {
-            val grantedCount = permissionResults.count { it.value }
-            val deniedCount = permissionResults.count { !it.value }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.onboarding_permissions_result, grantedCount, deniedCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
 
         if (!hasRequested) {
             Button(
