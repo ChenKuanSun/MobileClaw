@@ -194,6 +194,18 @@ object SlashCommands {
                 }
             },
         ),
+        SlashCommand(
+            name = "/btw",
+            description = "Ask a side question without changing conversation context.",
+            category = "Chat",
+            action = { args, viewModel ->
+                if (args.isBlank()) {
+                    viewModel.insertSystemMessage("Usage: /btw <question>\nAsk a quick side question. The answer won't affect the main conversation flow.")
+                } else {
+                    viewModel.sendMessage("[Side question — answer briefly without changing the main topic]: $args")
+                }
+            },
+        ),
     )
 
     fun findMatches(query: String): List<SlashCommand> {

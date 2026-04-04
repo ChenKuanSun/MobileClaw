@@ -79,6 +79,7 @@ enum class AiProvider(
         authHeader = "x-goog-api-key",
         tokenHint = "Paste your Google AI API key",
         models = listOf(
+            AiModel("gemini-3-pro", "Gemini 3 Pro"),
             AiModel("gemini-2.5-pro", "Gemini 2.5 Pro"),
             AiModel("gemini-2.5-flash", "Gemini 2.5 Flash"),
         ),
@@ -91,9 +92,9 @@ enum class AiProvider(
         authHeader = "Authorization",
         tokenHint = "Paste your OpenRouter API key",
         models = listOf(
-            AiModel("anthropic/claude-sonnet-4", "Claude Sonnet 4"),
-            AiModel("openai/gpt-4o", "GPT-4o"),
-            AiModel("google/gemini-2.5-pro", "Gemini 2.5 Pro"),
+            AiModel("anthropic/claude-sonnet-4-6", "Claude Sonnet 4.6"),
+            AiModel("openai/gpt-5.4", "GPT-5.4"),
+            AiModel("google/gemini-3-pro", "Gemini 3 Pro"),
             AiModel("deepseek/deepseek-r1", "DeepSeek R1"),
         ),
     ),
@@ -202,8 +203,9 @@ private val CLAUDE_MODELS = listOf(
 )
 
 private val OPENAI_MODELS = listOf(
+    AiModel("gpt-5.4", "GPT-5.4"),
+    AiModel("gpt-5.4-mini", "GPT-5.4 Mini"),
     AiModel("gpt-4o", "GPT-4o"),
-    AiModel("gpt-4o-mini", "GPT-4o Mini"),
     AiModel("o3-mini", "o3-mini"),
 )
 
