@@ -1,0 +1,21 @@
+MobileClaw
+Copyright 2026 Affiora, Inc.
+
+This product includes software developed by third parties under the following licenses:
+
+Apache License 2.0
+  - Kotlin (JetBrains)
+  - Ktor HTTP Client (JetBrains)
+  - AndroidX / Jetpack Compose (Google)
+  - Room Persistence Library (Google)
+  - Hilt / Dagger (Google)
+  - OkHttp (Square)
+  - Tink Cryptography (Google)
+  - AppAuth for Android (OpenID Foundation)
+  - ZXing Barcode Scanner (ZXing authors)
+  - WorkManager (Google)
+
+MIT License
+  - Anthropic Java SDK (Anthropic)
+
+Individual license texts are available in each library's source distribution.

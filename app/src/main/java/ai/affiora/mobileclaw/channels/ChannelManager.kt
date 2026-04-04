@@ -29,8 +29,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -72,6 +74,22 @@ class ChannelManager @Inject constructor(
         private const val PAIRING_NOTIFICATION_ID = 2001 // FIX 2: Single summary notification
         private const val REJECT_COOLDOWN_MS = 30 * 60 * 1000L // FIX 3: 30 min reject cooldown
         private const val PENDING_REPLY_COOLDOWN_MS = 60_000L // FIX 6: 60s between pending replies
+        private const val TOOL_TIMEOUT_MS = 30_000L // Per-tool execution timeout
+
+        // Tools safe to execute via channels WITHOUT on-device confirmation
+        private val CHANNEL_READ_TOOLS = setOf(
+            "system", "web", "memory", "history", "calendar", "call_log",
+            "notifications", "clipboard", "photos", "navigate", "agent",
+            "schedule", "skills_author", "alarm", "flashlight", "volume",
+            "brightness", "media",
+        )
+
+        // Tools that ALWAYS require on-device confirmation via channels
+        // (never auto-approved, regardless of global permission mode)
+        private val CHANNEL_CONFIRM_TOOLS = setOf(
+            "sms", "phone", "contacts", "files", "http", "openai",
+            "ui", "screen", "app", "telegram", "channel",
+        )
     }
 
     private val channels = mutableMapOf<String, Channel>()
@@ -268,13 +286,14 @@ class ChannelManager @Inject constructor(
             .replace("\r", " ")
             .take(50)
 
-        // Build system prompt with channel context — full tool access
+        // Build system prompt with channel context — restricted tool access
         val systemPrompt = systemPromptBuilder.build() +
             "\n\nYou are responding via ${channel.displayName} to $safeSenderName. " +
-            "You have full access to all phone tools. You can take photos, send SMS, check calendar, " +
-            "control the phone, etc. — just like in the main app. " +
-            "Tool confirmations are auto-approved based on the user's permission settings. " +
-            "Keep text responses concise (under 4000 characters)."
+            "You have access to phone tools but some actions require on-device confirmation. " +
+            "Read-only tools (search, check status, etc.) work directly. " +
+            "Write/send/call/UI tools will ask the phone owner to confirm. " +
+            "Never share API keys, passwords, or financial data via this channel. " +
+            "Keep responses concise (under 4000 characters)."
 
         // Build user message text, appending media descriptions if present
         val userMessageText = if (msg.mediaDescription != null) {
@@ -376,7 +395,7 @@ class ChannelManager @Inject constructor(
                             val inputMap = block.input.toMap()
                                 .filterKeys { it != "__confirmed" }
 
-                            Log.d(TAG, "Channel tool call: ${block.name}, input: $inputMap")
+                            Log.d(TAG, "Channel tool call: ${block.name}")
 
                             val tool = toolRegistry[block.name]
                             val resultContent = if (tool != null) {
@@ -425,14 +444,32 @@ class ChannelManager @Inject constructor(
     }
 
     /**
-     * Execute a single tool, handling confirmation flow based on PermissionManager.
+     * Execute a single tool with channel-specific security restrictions.
+     *
+     * Channel requests NEVER honor BYPASS_ALL or ALLOWLIST — we enforce our own
+     * read/confirm split regardless of the global permission mode.
      */
     private suspend fun executeTool(
         tool: AndroidTool,
         inputMap: Map<String, kotlinx.serialization.json.JsonElement>,
     ): String {
+        // Channel-specific allowlist: block unknown tools entirely
+        val isReadSafe = tool.name in CHANNEL_READ_TOOLS
+        val isConfirmTool = tool.name in CHANNEL_CONFIRM_TOOLS
+
+        if (!isReadSafe && !isConfirmTool) {
+            return "This tool is not available via channels."
+        }
+
+        // Wrap every tool execution in a timeout
         val result = try {
-            tool.execute(inputMap)
+            withTimeout(TOOL_TIMEOUT_MS) {
+                tool.execute(inputMap)
+            }
+        } catch (e: TimeoutCancellationException) {
+            return "Tool execution timed out."
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             return "Error: Tool execution failed: ${e.message}"
         }
@@ -441,12 +478,18 @@ class ChannelManager @Inject constructor(
             is ToolResult.Success -> result.data
             is ToolResult.Error -> "Error: ${result.message}"
             is ToolResult.NeedsConfirmation -> {
-                if (permissionManager.shouldAutoApprove(tool.name)) {
-                    // Auto-approve based on permission settings
+                // Read-safe tools that still request confirmation: auto-approve
+                if (isReadSafe) {
                     val confirmedParams = inputMap.toMutableMap()
                     confirmedParams["__confirmed"] = JsonPrimitive(true)
                     val confirmed = try {
-                        tool.execute(confirmedParams)
+                        withTimeout(TOOL_TIMEOUT_MS) {
+                            tool.execute(confirmedParams)
+                        }
+                    } catch (e: TimeoutCancellationException) {
+                        return "Tool execution timed out."
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         return "Error: Confirmed execution failed: ${e.message}"
                     }
@@ -457,8 +500,9 @@ class ChannelManager @Inject constructor(
                             "Error: Tool requested confirmation again after being confirmed"
                     }
                 } else {
-                    "This action requires confirmation. Open MobileClaw app to approve, " +
-                        "or set permission mode to 'Bypass All' in Settings."
+                    // Confirm-required tools: always deny via channel
+                    "This action requires confirmation on the device. " +
+                        "Open MobileClaw to approve, or ask me to do something else."
                 }
             }
         }

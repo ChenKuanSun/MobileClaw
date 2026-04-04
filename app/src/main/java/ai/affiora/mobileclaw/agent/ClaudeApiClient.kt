@@ -247,10 +247,7 @@ class ClaudeApiClient @Inject constructor(
 
             val params = paramsBuilder.build()
 
-            Log.d(TAG, "Anthropic SDK streaming request: model=${request.model}, maxTokens=${request.maxTokens}, messages=${request.messages.size}, tools=${request.tools?.size ?: 0}")
-            if (toolParams.isNotEmpty()) {
-                Log.d(TAG, "Tools: ${toolParams.map { tool -> val t = tool.asTool(); "${t.name()}: ${t._inputSchema()}" }}")
-            }
+            Log.d(TAG, "Anthropic SDK streaming request: model=${request.model}, messages=${request.messages.size}, tools=${request.tools?.size ?: 0}")
 
             // Stream the response — emit text deltas in real-time
             val contentBlocks = mutableListOf<ContentBlock>()

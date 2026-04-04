@@ -156,7 +156,7 @@ class AgentRuntime @Inject constructor(
                         hasToolUse = true
                         val inputMap: Map<String, JsonElement> = block.input.toMap()
                             .filterKeys { it != "__confirmed" }  // STRIP — AI cannot set this
-                        Log.d("AgentRuntime", "Tool call: ${block.name}, input: ${block.input}")
+                        Log.d("AgentRuntime", "Tool call: ${block.name}")
 
                         emit(AgentEvent.ToolCalling(toolName = block.name, input = inputMap))
 
