@@ -167,6 +167,18 @@ enum class AiProvider(
         models = listOf(
             AiModel("accounts/fireworks/models/llama-v3p1-405b-instruct", "Llama 3.1 405B Instruct"),
         ),
+    ),
+    LOCAL_GEMMA(
+        id = "local-gemma",
+        displayName = "On-Device (Gemma 4)",
+        baseUrl = "",
+        authType = AuthType.API_KEY,
+        authHeader = "",
+        tokenHint = "No API key needed — runs on device",
+        models = listOf(
+            AiModel("gemma-4-e2b", "Gemma 4 E2B (2.6 GB)"),
+            AiModel("gemma-4-e4b", "Gemma 4 E4B (3.7 GB)"),
+        ),
     );
 
     /** The effective provider ID for API routing (anthropic-token → anthropic, openai-codex → openai). */
@@ -176,6 +188,10 @@ enum class AiProvider(
             OPENAI_CODEX -> "openai"
             else -> id
         }
+
+    /** Whether this is an on-device local model provider (no API key, no network). */
+    val isLocal: Boolean
+        get() = this == LOCAL_GEMMA
 
     /** Whether this is an Anthropic-compatible provider. */
     val isAnthropic: Boolean

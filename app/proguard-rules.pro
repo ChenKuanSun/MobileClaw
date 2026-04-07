@@ -55,5 +55,9 @@
 -keep class com.google.zxing.** { *; }
 -dontwarn com.google.zxing.**
 
+# LiteRT-LM (on-device inference)
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**
+
 # Keep data classes used by serialization
 -keep class ai.affiora.mobileclaw.data.model.** { *; }

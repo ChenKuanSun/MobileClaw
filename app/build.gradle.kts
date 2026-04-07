@@ -120,6 +120,9 @@ dependencies {
     // Anthropic SDK
     implementation(libs.anthropic.sdk)
 
+    // On-Device Inference (LiteRT-LM)
+    implementation(libs.litertlm.android)
+
     // OAuth (AppAuth)
     implementation(libs.appauth)
 

@@ -100,6 +100,7 @@ class ChatViewModelTest {
             ttsManager = ttsManager,
             permissionManager = permissionManager,
             skillInstaller = skillInstaller,
+            networkMonitor = mockk(relaxed = true),
         )
     }
 

@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import android.content.Intent
 import ai.affiora.mobileclaw.agent.AiModel
 import ai.affiora.mobileclaw.agent.AiProvider
+import ai.affiora.mobileclaw.agent.DeviceCapability
+import ai.affiora.mobileclaw.agent.LocalModelManager
+import ai.affiora.mobileclaw.agent.ModelState
 import ai.affiora.mobileclaw.agent.PermissionManager
 import ai.affiora.mobileclaw.connectors.ConnectorConfig
 import ai.affiora.mobileclaw.connectors.ConnectorManager
@@ -38,6 +41,7 @@ class SettingsViewModel @Inject constructor(
     private val permissionManager: PermissionManager,
     private val connectorManager: ConnectorManager,
     private val toolRegistry: Map<String, @JvmSuppressWildcards ai.affiora.mobileclaw.tools.AndroidTool>,
+    private val localModelManager: LocalModelManager,
 ) : ViewModel() {
 
     val selectedProvider: StateFlow<AiProvider> = userPreferences.selectedProvider
@@ -66,14 +70,16 @@ class SettingsViewModel @Inject constructor(
     val clearHistoryCompleted: StateFlow<Boolean> = _clearHistoryCompleted.asStateFlow()
 
     private fun loadProviderTokens(): List<ProviderTokenState> {
-        return AiProvider.entries.map { provider ->
-            val token = userPreferences.getTokenForProvider(provider.id)
-            ProviderTokenState(
-                provider = provider,
-                token = token,
-                hasToken = token.isNotBlank(),
-            )
-        }
+        return AiProvider.entries
+            .filter { !it.isLocal } // Local models don't use API tokens
+            .map { provider ->
+                val token = userPreferences.getTokenForProvider(provider.id)
+                ProviderTokenState(
+                    provider = provider,
+                    token = token,
+                    hasToken = token.isNotBlank(),
+                )
+            }
     }
 
     fun updateTokenForProvider(providerId: String, token: String) {
@@ -128,6 +134,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferences.setSelectedProvider(provider.id)
             userPreferences.setSelectedModel(provider.models.first().id)
+        }
+    }
+
+    fun updateProviderAndModel(provider: AiProvider, modelId: String) {
+        viewModelScope.launch {
+            userPreferences.setSelectedProvider(provider.id)
+            userPreferences.setSelectedModel(modelId)
         }
     }
 
@@ -209,4 +222,59 @@ class SettingsViewModel @Inject constructor(
 
     /** All available tool names for the allowlist UI — derived from the actual tool registry. */
     val allToolNames: List<String> = toolRegistry.keys.sorted()
+
+    // ── Local Models ────────────────────────────────────────────────
+
+    val deviceCapability: StateFlow<DeviceCapability?> = MutableStateFlow(localModelManager.getDeviceCapability())
+
+    private val _localModelStates = MutableStateFlow<Map<String, ModelState>>(
+        localModelManager.getAllModelStates().mapValues { it.value.value }
+    )
+    val localModelStates: StateFlow<Map<String, ModelState>> = _localModelStates.asStateFlow()
+
+    /** Number of downloaded local models (for settings subtitle). */
+    val downloadedModelCount: Int
+        get() = _localModelStates.value.count { it.value is ModelState.Downloaded }
+
+    fun downloadModel(modelId: String) {
+        val job = viewModelScope.launch {
+            try {
+                localModelManager.downloadModel(modelId).collect { progress ->
+                    refreshLocalModelStates()
+                }
+            } catch (e: Exception) {
+                refreshLocalModelStates()
+            }
+        }
+        localModelManager.trackDownloadJob(modelId, job)
+    }
+
+    fun cancelDownload(modelId: String) {
+        localModelManager.cancelDownload(modelId)
+        refreshLocalModelStates()
+    }
+
+    fun deleteModel(modelId: String) {
+        viewModelScope.launch {
+            localModelManager.deleteModel(modelId)
+            refreshLocalModelStates()
+        }
+    }
+
+    private fun refreshLocalModelStates() {
+        _localModelStates.value = localModelManager.getAllModelStates().mapValues { it.value.value }
+    }
+
+    /** Include LOCAL_GEMMA in available models when a model is downloaded. */
+    fun getAvailableModelsIncludingLocal(): List<Pair<AiProvider, AiModel>> {
+        val cloudModels = getAvailableModels()
+        val localModels = if (localModelManager.hasAnyDownloadedModel()) {
+            AiProvider.LOCAL_GEMMA.models
+                .filter { localModelManager.getModelPath(it.id) != null }
+                .map { AiProvider.LOCAL_GEMMA to it }
+        } else {
+            emptyList()
+        }
+        return cloudModels + localModels
+    }
 }

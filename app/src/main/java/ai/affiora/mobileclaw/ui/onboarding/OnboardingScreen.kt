@@ -320,33 +320,68 @@ private fun ApiKeyPage(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        if (selectedProvider.isLocal) {
+            // Local model — no API key needed
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Token input
-        OutlinedTextField(
-            value = apiKey,
-            onValueChange = onApiKeyChanged,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.onboarding_api_key_label)) },
-            placeholder = { Text(selectedProvider.tokenHint) },
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            isError = error != null,
-            supportingText = if (error != null) {
-                { Text(error) }
-            } else {
-                null
-            },
-        )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "No API key needed",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Gemma 4 runs directly on your device. After setup, go to Settings \u2192 On-Device Models to download the model.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                    )
+                }
+            }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Button(
-            onClick = onNext,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = apiKey.isNotBlank(),
-        ) {
-            Text(stringResource(R.string.onboarding_next))
+            Button(
+                onClick = onNext,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.onboarding_next))
+            }
+        } else {
+            // Cloud provider — API key required
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = apiKey,
+                onValueChange = onApiKeyChanged,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.onboarding_api_key_label)) },
+                placeholder = { Text(selectedProvider.tokenHint) },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                isError = error != null,
+                supportingText = if (error != null) {
+                    { Text(error) }
+                } else {
+                    null
+                },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onNext,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = apiKey.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.onboarding_next))
+            }
         }
     }
 }

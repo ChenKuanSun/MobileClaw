@@ -58,6 +58,8 @@ class ClaudeApiException(
 @Singleton
 class ClaudeApiClient @Inject constructor(
     private val userPreferences: UserPreferences,
+    private val localInferenceEngine: LocalInferenceEngine,
+    private val localModelManager: LocalModelManager,
 ) {
 
     private val jsonSerializer = Json {
@@ -118,6 +120,11 @@ class ClaudeApiClient @Inject constructor(
         val providerId = userPreferences.selectedProvider.first()
         val provider = AiProvider.fromId(providerId)
 
+        // Local models don't need an API key or network
+        if (provider.isLocal) {
+            return sendLocal(request, onTextDelta)
+        }
+
         if (apiKey.isBlank()) {
             throw ClaudeApiException(401, "API key not configured. Go to Settings to add your ${provider.displayName} token.")
         }
@@ -127,6 +134,32 @@ class ClaudeApiClient @Inject constructor(
             provider == AiProvider.GOOGLE -> withRetry(onRetry) { sendGoogle(request, apiKey, provider) }
             else -> withRetry(onRetry) { sendOpenAiCompatible(request, apiKey, provider) }
         }
+    }
+
+    // ── Local on-device inference via LiteRT-LM ────────────────────────────
+
+    /** Register tools for local on-device inference. Called by AgentRuntime which holds the tool registry. */
+    fun setLocalTools(toolRegistry: Map<String, ai.affiora.mobileclaw.tools.AndroidTool>) {
+        localInferenceEngine.setTools(toolRegistry)
+    }
+
+    private suspend fun sendLocal(
+        request: ClaudeRequest,
+        onTextDelta: ((String) -> Unit)? = null,
+    ): ClaudeResponse {
+        val modelPath = localModelManager.getModelPath(request.model)
+            ?: throw ClaudeApiException(0, "Model '${request.model}' not downloaded. Go to Settings → On-Device Models to download it.")
+
+        if (!localInferenceEngine.isInitialized) {
+            localInferenceEngine.initialize(modelPath)
+        }
+
+        return localInferenceEngine.generateResponse(
+            messages = request.messages,
+            systemPrompt = "You are a helpful AI assistant running on the user's Android phone. " +
+                "You have tools to control the phone. Use them when the user asks. Be concise.",
+            onDelta = onTextDelta,
+        )
     }
 
     // ── Anthropic via official SDK ──────────────────────────────────────────

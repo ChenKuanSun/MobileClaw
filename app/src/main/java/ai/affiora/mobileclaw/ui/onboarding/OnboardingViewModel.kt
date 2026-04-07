@@ -117,8 +117,8 @@ class OnboardingViewModel @Inject constructor(
 
     fun nextStep(): Boolean {
         val state = _uiState.value
-        // Validate API key on step 1 -> 2 transition
-        if (state.currentStep == 1) {
+        // Validate API key on step 1 -> 2 transition (skip for local providers)
+        if (state.currentStep == 1 && !state.selectedProvider.isLocal) {
             if (state.apiKey.isBlank()) {
                 _uiState.update { it.copy(apiKeyError = "API key is required") }
                 return false
@@ -144,7 +144,9 @@ class OnboardingViewModel @Inject constructor(
 
         viewModelScope.launch {
             val provider = state.selectedProvider
-            userPreferences.setTokenForProvider(provider.id, state.apiKey)
+            if (!provider.isLocal) {
+                userPreferences.setTokenForProvider(provider.id, state.apiKey)
+            }
             userPreferences.setSelectedProvider(provider.id)
             userPreferences.setSelectedModel(provider.models.first().id)
 

@@ -16,29 +16,24 @@
 
 ## Highlights
 
-- **25 native tools** — SMS, calls, contacts, calendar, camera, file system, web browser, UI automation, and more
-- **19 built-in skills** — pre-configured workflows for morning routines, email triage, web research, navigation, and beyond
+- **29 native tools** — SMS, calls, contacts, calendar, camera, file system, web browser, UI automation, and more
+- **21 built-in skills** — pre-configured workflows for morning routines, email triage, web research, navigation, and beyond
+- **On-device AI** — run Gemma 4 locally with tool calling, no API key or internet needed
 - **Accessibility-powered automation** — tap, swipe, type, and read any screen through Android's AccessibilityService
-
-<p align="center">
-  <img src="docs/images/screenshot_chat.png" width="270" alt="Chat screen">
-  &nbsp;&nbsp;
-  <img src="docs/images/screenshot_skills.png" width="270" alt="Skills screen">
-  &nbsp;&nbsp;
-  <img src="docs/images/screenshot_settings.png" width="270" alt="Settings screen">
-</p>
 
 ## Key Capabilities
 
 | Category | Details |
 |---|---|
-| **Tools** | 25 Android-native tools exposed as Claude tool definitions |
-| **Skills** | 19 composable skill files (12 built-in + 7 vertical) |
-| **AI Providers** | Anthropic Claude (primary), OpenAI (secondary) |
+| **Tools** | 29 Android-native tools exposed as AI tool definitions |
+| **Skills** | 21 composable skill files (14 built-in + 7 vertical) |
+| **AI Providers** | 10 cloud providers + on-device Gemma 4 (E2B/E4B) via LiteRT-LM |
+| **On-Device AI** | Gemma 4 runs locally with GPU acceleration — no API key, no internet, no cost |
+| **Channels** | Remote control via Telegram bot, SMS, and notifications |
 | **Automation** | Full UI automation via AccessibilityService |
 | **Scheduling** | Cron-style scheduled agent tasks |
 | **Voice** | Voice input and text-to-speech output |
-| **Privacy** | All data stored on-device, API keys encrypted with Tink |
+| **Privacy** | All data stored on-device, API keys encrypted with Android Keystore (AES-256-GCM) |
 
 ## Tools
 
@@ -67,13 +62,18 @@
 | `system_info` | Battery, storage, connectivity info |
 | `schedule` | Create and manage scheduled agent tasks |
 | `skill_author` | Create new skills at runtime |
+| `memory` | Persistent key-value memory across conversations |
+| `session_history` | Query past conversation history |
+| `sub_agent` | Spawn a sub-agent with a separate AI call |
+| `channel` | Send messages via Telegram, SMS, or notification channels |
+| `telegram` | Telegram bot management and messaging |
 | `openai` | Call OpenAI models as a sub-agent |
 
 ## Skills
 
-**Built-in:** morning-routine, email, messaging-apps, navigation, notification-digest, phone-basics, photos, self-learning, social-media, translation, weather, web-research
+**Built-in (14):** morning-routine, email, messaging-apps, navigation, notification-digest, phone-basics, photos, self-learning, social-media, telegram-bot, translation, ui-fallback, weather, web-research
 
-**Vertical:** finance, health, notion, real-estate, shopping, smart-home, telegram
+**Vertical (7):** finance, health, notion, real-estate, shopping, smart-home, telegram
 
 Skills are composable Markdown files with YAML frontmatter. You can create your own skills from the app or by adding a `SKILL.md` file to `app/src/main/assets/skills/user/`.
 
@@ -90,7 +90,6 @@ Skills are composable Markdown files with YAML frontmatter. You can create your 
 ```bash
 git clone https://github.com/AidenYangX/MobileClaw.git
 cd MobileClaw
-cp local.properties.example local.properties   # add your SDK path
 ./gradlew assembleDebug
 ```
 
@@ -114,10 +113,10 @@ Install the debug APK on your device or emulator, then:
 │             AgentRuntime                 │
 │   Tool-use loop: Claude ↔ AndroidTools  │
 ├──────────────────┬───────────────────────┤
-│   25 AndroidTools│    SkillsManager      │
+│   29 AndroidTools│    SkillsManager      │
 │   (native APIs)  │  (SKILL.md loader)    │
 ├──────────────────┴───────────────────────┤
-│  Room DB · DataStore · Tink Encryption   │
+│  Room DB · DataStore · EncryptedPrefs    │
 ├──────────────────────────────────────────┤
 │  ClawAccessibilityService                │
 │  ClawNotificationListener                │
@@ -131,7 +130,7 @@ Install the debug APK on your device or emulator, then:
 - **AgentRuntime** — agentic tool-use loop that sends messages to Claude, executes tool calls, and feeds results back
 - **AccessibilityService** — enables UI automation (tap, swipe, read screen)
 - **Anthropic Java SDK + Ktor** — API communication
-- **Tink** — AES-GCM encryption for API keys at rest
+- **EncryptedSharedPreferences** — AES-256-GCM encryption for API keys, backed by Android Keystore
 
 ## Contributing
 

@@ -35,6 +35,11 @@ class AgentRuntime @Inject constructor(
 
     private val pendingConfirmations = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
 
+    init {
+        // Pass tool registry to API client for local on-device inference
+        apiClient.setLocalTools(toolRegistry)
+    }
+
     fun run(
         userMessage: String,
         conversationHistory: List<ClaudeMessage>,

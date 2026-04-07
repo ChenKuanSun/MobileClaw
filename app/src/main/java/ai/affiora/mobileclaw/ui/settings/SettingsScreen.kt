@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Security
@@ -64,6 +65,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Card
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -106,6 +108,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 private fun pageTitle(page: String): String = when (page) {
     "main" -> stringResource(R.string.settings_title)
     "provider" -> stringResource(R.string.settings_ai_provider)
+    "local-models" -> "On-Device Models"
     "connectors" -> stringResource(R.string.settings_connectors)
     "permissions" -> stringResource(R.string.settings_permissions)
     "device" -> stringResource(R.string.settings_device)
@@ -214,7 +217,8 @@ fun SettingsScreen(
                     deviceName = deviceName,
                     onNavigate = { currentPage = it },
                 )
-                "provider" -> ProviderPage(viewModel, selectedProvider, selectedModel, providerTokens)
+                "provider" -> ProviderPage(viewModel, selectedProvider, selectedModel, providerTokens) { currentPage = it }
+                "local-models" -> LocalModelPage(viewModel)
                 "connectors" -> ConnectorsPage(viewModel, connectorStatuses, oauthLauncher)
                 "permissions" -> PermissionsPage(viewModel, permissionMode, allowedTools)
                 "device" -> DevicePage(viewModel, deviceName)
@@ -370,13 +374,14 @@ private fun ProviderPage(
     selectedProvider: AiProvider,
     selectedModel: String,
     providerTokens: List<ProviderTokenState>,
+    onNavigate: (String) -> Unit = {},
 ) {
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var showAddKeyDialog by remember { mutableStateOf(false) }
     var showRemoveKeyDialog by remember { mutableStateOf<AiProvider?>(null) }
 
     val configuredKeys = providerTokens.filter { it.hasToken }
-    val availableModels = viewModel.getAvailableModels()
+    val availableModels = viewModel.getAvailableModelsIncludingLocal()
     val modelDisplay = selectedProvider.models
         .firstOrNull { it.id == selectedModel }?.displayName ?: selectedModel
 
@@ -529,6 +534,56 @@ private fun ProviderPage(
 
         Spacer(Modifier.height(24.dp))
 
+        // ── On-Device ──
+        Text(
+            "ON-DEVICE",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(8.dp))
+
+        val downloadedCount = viewModel.downloadedModelCount
+        Card(
+            onClick = { onNavigate("local-models") },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.Memory,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Gemma 4",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        if (downloadedCount > 0) "$downloadedCount model${if (downloadedCount > 1) "s" else ""} downloaded"
+                        else "No API key needed \u00b7 Runs offline",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         // ── Model ──
         if (availableModels.isNotEmpty()) {
             Text(
@@ -590,8 +645,7 @@ private fun ProviderPage(
                                     }
                                 },
                                 onClick = {
-                                    viewModel.updateProvider(prov)
-                                    viewModel.updateSelectedModel(model.id)
+                                    viewModel.updateProviderAndModel(prov, model.id)
                                     modelDropdownExpanded = false
                                 },
                             )
@@ -619,8 +673,8 @@ private fun AddKeyDialog(
     onDismiss: () -> Unit,
     onAdd: (providerId: String, token: String) -> Unit,
 ) {
-    // Show all providers, not just unconfigured ones (user might want to replace)
-    val allProviders = AiProvider.entries.toList()
+    // Show all cloud providers (local models don't use API keys)
+    val allProviders = AiProvider.entries.filter { !it.isLocal }
     // Default to first unconfigured provider, or first provider
     val defaultProvider = allProviders.firstOrNull { it.id !in configuredProviderIds } ?: allProviders.first()
 
