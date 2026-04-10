@@ -149,6 +149,11 @@ class ChannelManager @Inject constructor(
                 delay(30_000) // Check every 30 seconds
                 channels.values.forEach { channel ->
                     if (!channel.isRunning) {
+                        // Outbound-only channels (WhatsApp, Teams) have no listener loop.
+                        // If start() already ran and set isRunning=false (missing creds),
+                        // retrying every 30s just spins doing SharedPreferences reads.
+                        if (channel.isOutboundOnly) return@forEach
+
                         Log.w(TAG, "Channel ${channel.id} is not running, restarting...")
                         try {
                             channel.start()
@@ -312,7 +317,9 @@ class ChannelManager @Inject constructor(
         )
 
         if (reply.isNotBlank()) {
-            channel.sendMessage(msg.chatId, reply)
+            // Reply in the same thread the user wrote in (Slack thread_ts, Matrix in_reply_to,
+            // Telegram message_thread_id, Feishu message_id, Teams replyToId)
+            channel.sendMessage(msg.chatId, reply, msg.threadId)
             synchronized(history) {
                 history.add(HistoryMessage("assistant", reply))
                 while (history.size > MAX_HISTORY) history.removeAt(0)

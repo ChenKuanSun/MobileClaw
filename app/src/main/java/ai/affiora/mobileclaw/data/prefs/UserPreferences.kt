@@ -31,6 +31,8 @@ class UserPreferences(private val context: Context) {
         val DEVICE_NAME = stringPreferencesKey("device_name")
         val PERMISSION_MODE = stringPreferencesKey("permission_mode")
         val ALLOWED_TOOLS = stringSetPreferencesKey("allowed_tools")
+        // Per-provider base URL override (used by CUSTOM provider for Ollama/LM Studio/vLLM)
+        fun baseUrlKey(providerId: String) = stringPreferencesKey("base_url_$providerId")
         // Per-provider key prefix in EncryptedSharedPreferences
         fun tokenKey(providerId: String) = "token_$providerId"
     }
@@ -126,6 +128,22 @@ class UserPreferences(private val context: Context) {
     suspend fun setApiKey(apiKey: String) {
         val providerId = selectedProvider.first()
         setTokenForProvider(providerId, apiKey)
+    }
+
+    /** Read the per-provider base URL override. Empty if not configured. */
+    suspend fun getBaseUrlForProvider(providerId: String): String {
+        return context.dataStore.data.map { it[Keys.baseUrlKey(providerId)] ?: "" }.first()
+    }
+
+    /** Reactive flow of base URL for a specific provider. */
+    fun baseUrlFlowForProvider(providerId: String): Flow<String> =
+        context.dataStore.data.map { it[Keys.baseUrlKey(providerId)] ?: "" }
+
+    /** Set the per-provider base URL override. */
+    suspend fun setBaseUrlForProvider(providerId: String, baseUrl: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.baseUrlKey(providerId)] = baseUrl
+        }
     }
 
     suspend fun setSelectedProvider(provider: String) {

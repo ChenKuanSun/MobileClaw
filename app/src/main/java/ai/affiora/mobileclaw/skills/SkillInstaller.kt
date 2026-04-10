@@ -50,7 +50,7 @@ class SkillInstaller @Inject constructor(
             Regex("""system\s*:\s*""", RegexOption.IGNORE_CASE),
         )
 
-        private const val MAX_SKILL_SIZE = 50_000 // 50KB max
+        private const val MAX_SKILL_SIZE = 500_000 // 500KB max — accommodates skills with embedded examples / large prompts
     }
 
     data class ScanResult(

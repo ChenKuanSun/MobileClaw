@@ -6,14 +6,21 @@ interface Channel {
     val displayName: String
     val isRunning: Boolean
 
+    /** Whether this channel only supports sending (no incoming message listener). */
+    val isOutboundOnly: Boolean get() = false
+
     /** Start listening for incoming messages. */
     suspend fun start()
 
     /** Stop listening. */
     fun stop()
 
-    /** Send a text message to a specific chat/user. */
-    suspend fun sendMessage(chatId: String, text: String)
+    /**
+     * Send a text message to a specific chat/user.
+     * @param threadId optional thread/reply identifier (Slack thread_ts, Telegram message_thread_id,
+     *   Matrix event_id for m.in_reply_to). If null, posts to the chat root.
+     */
+    suspend fun sendMessage(chatId: String, text: String, threadId: String? = null)
 
     /** Send a photo to a specific chat/user. Returns true if supported. */
     suspend fun sendPhoto(chatId: String, imageBytes: ByteArray, caption: String? = null): Boolean = false
@@ -50,4 +57,6 @@ data class IncomingMessage(
     val timestamp: Long,
     val imageBase64: String? = null,
     val mediaDescription: String? = null,
+    /** Thread identifier (Slack thread_ts, Telegram message_thread_id, Matrix root event_id). */
+    val threadId: String? = null,
 )

@@ -99,7 +99,8 @@ class SmsChannel(
         isRunning = false
     }
 
-    override suspend fun sendMessage(chatId: String, text: String) {
+    override suspend fun sendMessage(chatId: String, text: String, threadId: String?) {
+        // SMS has no thread concept — threadId ignored
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS)
             != PackageManager.PERMISSION_GRANTED
         ) {

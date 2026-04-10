@@ -570,20 +570,25 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun showCompletionNotification() {
-        val manager = application.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val intent = application.packageManager.getLaunchIntentForPackage(application.packageName)
-        val pendingIntent = PendingIntent.getActivity(
-            application, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notification = NotificationCompat.Builder(application, MobileClawApplication.CHANNEL_AGENT_ALERTS)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Task completed")
-            .setContentText("MobileClaw finished processing your request.")
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-        manager.notify(3001, notification)
+        try {
+            val manager = application.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                ?: return
+            val intent = application.packageManager.getLaunchIntentForPackage(application.packageName)
+            val pendingIntent = PendingIntent.getActivity(
+                application, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val notification = NotificationCompat.Builder(application, MobileClawApplication.CHANNEL_AGENT_ALERTS)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Task completed")
+                .setContentText("MobileClaw finished processing your request.")
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+            manager.notify(3001, notification)
+        } catch (e: Exception) {
+            android.util.Log.w("ChatViewModel", "Could not show completion notification: ${e.message}")
+        }
     }
 
     private fun handleSlashCommand(text: String) {

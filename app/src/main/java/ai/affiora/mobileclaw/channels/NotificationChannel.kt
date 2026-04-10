@@ -77,9 +77,8 @@ class NotificationChannel(
         isRunning = false
     }
 
-    override suspend fun sendMessage(chatId: String, text: String) {
-        // Full reply requires AccessibilityService to type in the app.
-        // For now, just log. Full implementation would use UIAutomationTool.
+    override suspend fun sendMessage(chatId: String, text: String, threadId: String?) {
+        // Notification channel can't reply to threads — accessibility-driven UI typing
         Log.i(TAG, "Would reply to $chatId: ${text.take(100)}")
     }
 

@@ -10,10 +10,8 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import ai.affiora.mobileclaw.MobileClawApplication
+import ai.affiora.mobileclaw.channels.Channel
 import ai.affiora.mobileclaw.channels.ChannelManager
-import ai.affiora.mobileclaw.channels.NotificationChannel
-import ai.affiora.mobileclaw.channels.SmsChannel
-import ai.affiora.mobileclaw.channels.TelegramChannel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,13 +30,7 @@ class AgentService : Service() {
     lateinit var channelManager: ChannelManager
 
     @Inject
-    lateinit var telegramChannel: TelegramChannel
-
-    @Inject
-    lateinit var smsChannel: SmsChannel
-
-    @Inject
-    lateinit var notificationChannel: NotificationChannel
+    lateinit var channels: Set<@JvmSuppressWildcards Channel>
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val binder = AgentBinder()
@@ -60,10 +52,8 @@ class AgentService : Service() {
             startForeground(NOTIFICATION_ID, buildNotification())
         }
 
-        // Register and start messaging channels
-        channelManager.registerChannel(telegramChannel)
-        channelManager.registerChannel(smsChannel)
-        channelManager.registerChannel(notificationChannel)
+        // Register and start all messaging channels
+        channels.forEach { channelManager.registerChannel(it) }
         channelManager.startAll()
     }
 
@@ -82,19 +72,13 @@ class AgentService : Service() {
         }
 
         // Ensure channels are running (handles system restarts via START_STICKY)
-        ensureChannelsRunning()
-
-        return START_STICKY
-    }
-
-    private fun ensureChannelsRunning() {
         if (!channelManager.isWatchdogRunning()) {
             android.util.Log.i("AgentService", "Channels not running, restarting...")
-            channelManager.registerChannel(telegramChannel)
-            channelManager.registerChannel(smsChannel)
-            channelManager.registerChannel(notificationChannel)
+            channels.forEach { channelManager.registerChannel(it) }
             channelManager.startAll()
         }
+
+        return START_STICKY
     }
 
     override fun onDestroy() {

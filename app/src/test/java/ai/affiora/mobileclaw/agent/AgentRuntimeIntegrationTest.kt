@@ -42,6 +42,7 @@ class AgentRuntimeIntegrationTest {
         apiClient = mockk()
         userPreferences = mockk()
         permissionManager = mockk()
+        every { apiClient.setLocalTools(any()) } returns Unit
         every { userPreferences.selectedModel } returns flowOf("claude-sonnet-4-6")
         every { permissionManager.shouldAutoApprove(any()) } returns false
     }
@@ -171,7 +172,7 @@ class AgentRuntimeIntegrationTest {
         val response2 = toolUseResponse("msg_002", "toolu_002", "sms", smsInput)
         val response3 = textResponse("msg_003", "Done! SMS sent to all missed callers.")
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returnsMany listOf(
             response1, response2, response3,
         )
 
@@ -219,7 +220,7 @@ class AgentRuntimeIntegrationTest {
         assertThat(texts.last().text).isEqualTo("Done! SMS sent to all missed callers.")
 
         // Verify the API was called exactly 3 times
-        coVerify(exactly = 3) { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) }
+        coVerify(exactly = 3) { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) }
         coVerify(exactly = 1) { callLogTool.execute(any()) }
         coVerify(exactly = 2) { smsTool.execute(any()) }
     }
@@ -227,7 +228,7 @@ class AgentRuntimeIntegrationTest {
     @Test
     @DisplayName("API error recovery: 429 rate limit emits Error event")
     fun `API error recovery emits Error event with status and body`() = runTest {
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } throws
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } throws
             ClaudeApiException(429, "Rate limited")
 
         val runtime = buildRuntime(emptyMap())
@@ -239,7 +240,7 @@ class AgentRuntimeIntegrationTest {
         assertThat(error.message).contains("429")
         assertThat(error.message).contains("Rate limited")
 
-        coVerify(exactly = 1) { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) }
+        coVerify(exactly = 1) { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) }
     }
 
     @Test
@@ -257,7 +258,7 @@ class AgentRuntimeIntegrationTest {
             toolName = "echo",
             input = JsonObject(mapOf("text" to JsonPrimitive("ping"))),
         )
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns infiniteToolUseResponse
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returns infiniteToolUseResponse
 
         val runtime = buildRuntime(mapOf("echo" to echoTool))
         val events = runtime.run("Loop forever", emptyHistory, systemPrompt).toList().withoutRaw()
@@ -273,7 +274,7 @@ class AgentRuntimeIntegrationTest {
         assertThat(errors[0].message).contains("maximum iteration limit")
         assertThat(errors[0].message).contains("200")
 
-        coVerify(exactly = 200) { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) }
+        coVerify(exactly = 200) { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) }
         coVerify(exactly = 200) { echoTool.execute(any()) }
     }
 }

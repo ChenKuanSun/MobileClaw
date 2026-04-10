@@ -54,9 +54,15 @@ class SettingsViewModel @Inject constructor(
     val deviceName: StateFlow<String> = userPreferences.deviceName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    // Per-provider token states
-    private val _providerTokens = MutableStateFlow(loadProviderTokens())
+    // Per-provider token states (loaded asynchronously in init)
+    private val _providerTokens = MutableStateFlow<List<ProviderTokenState>>(emptyList())
     val providerTokens: StateFlow<List<ProviderTokenState>> = _providerTokens.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _providerTokens.value = loadProviderTokens()
+        }
+    }
 
     val permissionMode: StateFlow<PermissionManager.PermissionMode> = permissionManager.mode
 
@@ -69,15 +75,21 @@ class SettingsViewModel @Inject constructor(
     private val _clearHistoryCompleted = MutableStateFlow(false)
     val clearHistoryCompleted: StateFlow<Boolean> = _clearHistoryCompleted.asStateFlow()
 
-    private fun loadProviderTokens(): List<ProviderTokenState> {
+    private suspend fun loadProviderTokens(): List<ProviderTokenState> {
         return AiProvider.entries
             .filter { !it.isLocal } // Local models don't use API tokens
             .map { provider ->
                 val token = userPreferences.getTokenForProvider(provider.id)
+                // CUSTOM providers are "configured" when baseUrl is set, not when token is set
+                val configured = if (provider.requiresCustomBaseUrl) {
+                    userPreferences.getBaseUrlForProvider(provider.id).isNotBlank()
+                } else {
+                    token.isNotBlank()
+                }
                 ProviderTokenState(
                     provider = provider,
                     token = token,
-                    hasToken = token.isNotBlank(),
+                    hasToken = configured,
                 )
             }
     }
@@ -97,7 +109,7 @@ class SettingsViewModel @Inject constructor(
             if (userPreferences.getTokenForProvider(currentProvider).isBlank()) {
                 val provider = AiProvider.fromId(providerId)
                 userPreferences.setSelectedProvider(provider.id)
-                userPreferences.setSelectedModel(provider.models.first().id)
+                provider.models.firstOrNull()?.let { userPreferences.setSelectedModel(it.id) }
             }
             _providerTokens.value = loadProviderTokens()
             _noKeysConfigured.value = false
@@ -114,12 +126,25 @@ class SettingsViewModel @Inject constructor(
                 val fallback = updated.firstOrNull { it.hasToken }
                 if (fallback != null) {
                     userPreferences.setSelectedProvider(fallback.provider.id)
-                    userPreferences.setSelectedModel(fallback.provider.models.first().id)
+                    fallback.provider.models.firstOrNull()?.let { userPreferences.setSelectedModel(it.id) }
                 }
             }
             val updated = loadProviderTokens()
             _providerTokens.value = updated
             _noKeysConfigured.value = updated.none { it.hasToken }
+        }
+    }
+
+    /** Get the configured base URL for a provider (used by CUSTOM provider). */
+    suspend fun getBaseUrlForProvider(providerId: String): String =
+        userPreferences.getBaseUrlForProvider(providerId)
+
+    /** Set the per-provider base URL override (used by CUSTOM provider). */
+    fun updateBaseUrlForProvider(providerId: String, baseUrl: String) {
+        viewModelScope.launch {
+            userPreferences.setBaseUrlForProvider(providerId, baseUrl.trim())
+            // Refresh hasToken state — for CUSTOM, hasToken depends on baseUrl
+            _providerTokens.value = loadProviderTokens()
         }
     }
 
@@ -133,7 +158,7 @@ class SettingsViewModel @Inject constructor(
     fun updateProvider(provider: AiProvider) {
         viewModelScope.launch {
             userPreferences.setSelectedProvider(provider.id)
-            userPreferences.setSelectedModel(provider.models.first().id)
+            provider.models.firstOrNull()?.let { userPreferences.setSelectedModel(it.id) }
         }
     }
 

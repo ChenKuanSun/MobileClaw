@@ -235,7 +235,7 @@ class TelegramChannel(
         isRunning = false
     }
 
-    override suspend fun sendMessage(chatId: String, text: String) {
+    override suspend fun sendMessage(chatId: String, text: String, threadId: String?) {
         val token = connectorManager.getToken("telegram") ?: return
         // Split at 4096 char Telegram limit
         text.chunked(4096).forEach { chunk ->
@@ -248,6 +248,10 @@ class TelegramChannel(
                             buildJsonObject {
                                 put("chat_id", JsonPrimitive(chatId.toLong()))
                                 put("text", JsonPrimitive(chunk))
+                                // Forum topic / thread routing — Telegram supergroups with topics
+                                threadId?.toIntOrNull()?.let {
+                                    put("message_thread_id", JsonPrimitive(it))
+                                }
                             }.toString(),
                         )
                     }

@@ -103,7 +103,8 @@ class SkillInstallerTest {
 
     @Test
     fun `content exceeding MAX_SKILL_SIZE is BLOCKED`() {
-        val content = "a".repeat(50_001)
+        // MAX_SKILL_SIZE is 500KB; anything above blocks
+        val content = "a".repeat(500_001)
 
         val result = installer.scanContent(content)
         assertThat(result.safe).isFalse()

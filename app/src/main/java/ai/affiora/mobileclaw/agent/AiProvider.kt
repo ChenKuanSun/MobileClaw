@@ -25,6 +25,10 @@ enum class AiProvider(
     val tokenHint: String,
     val models: List<AiModel>,
     val extraHeaders: Map<String, String> = emptyMap(),
+    /** Path appended to baseUrl for chat completions. Default matches OpenAI convention. */
+    val chatCompletionsPath: String = "/v1/chat/completions",
+    /** True if user must enter their own baseUrl (e.g. self-hosted Ollama / LM Studio / vLLM). */
+    val requiresCustomBaseUrl: Boolean = false,
 ) {
     ANTHROPIC(
         id = "anthropic",
@@ -102,6 +106,8 @@ enum class AiProvider(
             AiModel("nvidia/nemotron-3-nano-30b-a3b:free", "Nemotron 3 Nano 30B (free)"),
             AiModel("minimax/minimax-m2.5:free", "MiniMax M2.5 (free)"),
             AiModel("stepfun/step-3.5-flash:free", "Step 3.5 Flash (free)"),
+            AiModel("arcee-ai/trinity-large-preview:free", "Arcee Trinity Large (free)"),
+            AiModel("liquid/lfm-2.5-1.2b-thinking:free", "Liquid LFM 2.5 1.2B Thinking (free)"),
             AiModel("openrouter/free", "Auto (free models router)"),
             // Paid models
             AiModel("anthropic/claude-sonnet-4-6", "Claude Sonnet 4.6"),
@@ -195,6 +201,102 @@ enum class AiProvider(
             AiModel("accounts/fireworks/models/qwen3-235b-a22b", "Qwen 3 235B"),
         ),
     ),
+    QWEN(
+        id = "qwen",
+        displayName = "Qwen (Alibaba)",
+        baseUrl = "https://dashscope-intl.aliyuncs.com/compatible-mode",
+        authType = AuthType.API_KEY,
+        authHeader = "Authorization",
+        tokenHint = "Paste your DashScope API key",
+        models = listOf(
+            AiModel("qwen3.6-plus", "Qwen 3.6 Plus"),
+            AiModel("qwen3-max", "Qwen 3 Max"),
+            AiModel("qwen3.5-plus", "Qwen 3.5 Plus"),
+            AiModel("qwen3.5-flash", "Qwen 3.5 Flash"),
+            AiModel("qwen3-coder-plus", "Qwen 3 Coder Plus"),
+        ),
+    ),
+    STEPFUN(
+        id = "stepfun",
+        displayName = "StepFun",
+        baseUrl = "https://api.stepfun.com",
+        authType = AuthType.API_KEY,
+        authHeader = "Authorization",
+        tokenHint = "Paste your StepFun API key",
+        models = listOf(
+            AiModel("step-3.5-flash", "Step 3.5 Flash"),
+            AiModel("step-2-16k", "Step 2 16K"),
+            AiModel("step-1-256k", "Step 1 256K"),
+            AiModel("step-1-128k", "Step 1 128K"),
+        ),
+    ),
+    NVIDIA_NIM(
+        id = "nvidia-nim",
+        displayName = "NVIDIA NIM",
+        baseUrl = "https://integrate.api.nvidia.com",
+        authType = AuthType.API_KEY,
+        authHeader = "Authorization",
+        tokenHint = "Paste your NVIDIA API key (nvapi-...) — get one at build.nvidia.com",
+        models = listOf(
+            AiModel("meta/llama-3.3-70b-instruct", "Llama 3.3 70B"),
+            AiModel("meta/llama-4-maverick-17b-128e-instruct", "Llama 4 Maverick"),
+            AiModel("meta/llama-4-scout-17b-16e-instruct", "Llama 4 Scout"),
+            AiModel("nvidia/nemotron-3-super-120b-a12b", "Nemotron 3 Super 120B"),
+            AiModel("nvidia/llama-3.1-nemotron-ultra-253b-v1", "Nemotron Ultra 253B"),
+            AiModel("deepseek-ai/deepseek-r1", "DeepSeek R1"),
+            AiModel("deepseek-ai/deepseek-v3", "DeepSeek V3"),
+            AiModel("qwen/qwen3-235b-a22b", "Qwen 3 235B"),
+            AiModel("mistralai/mistral-large", "Mistral Large"),
+        ),
+    ),
+    ZAI(
+        id = "zai",
+        displayName = "z.ai (GLM)",
+        baseUrl = "https://api.z.ai/api/paas/v4",
+        authType = AuthType.API_KEY,
+        authHeader = "Authorization",
+        tokenHint = "Paste your z.ai API key — get one at z.ai/model-api",
+        models = listOf(
+            AiModel("glm-5.1", "GLM 5.1"),
+            AiModel("glm-4.7", "GLM 4.7"),
+            AiModel("glm-4.6", "GLM 4.6"),
+            AiModel("glm-4.5", "GLM 4.5"),
+            AiModel("glm-4.5-air", "GLM 4.5 Air"),
+            AiModel("glm-4.7-flash", "GLM 4.7 Flash (free)"),
+            AiModel("glm-4.5-flash", "GLM 4.5 Flash (free)"),
+        ),
+        chatCompletionsPath = "/chat/completions",
+    ),
+    CUSTOM(
+        id = "custom",
+        displayName = "Custom (Ollama / LM Studio / vLLM)",
+        baseUrl = "",  // user-provided
+        authType = AuthType.API_KEY,
+        authHeader = "Authorization",
+        tokenHint = "Optional bearer token (leave blank for Ollama). Set Base URL + Model ID below.",
+        models = emptyList(),  // user-provided
+        // User enters full base URL including /v1 (e.g. http://host:11434/v1) — only /chat/completions appended
+        chatCompletionsPath = "/chat/completions",
+        requiresCustomBaseUrl = true,
+    ),
+    BEDROCK(
+        id = "bedrock",
+        displayName = "Amazon Bedrock",
+        baseUrl = "",  // region-specific, built dynamically
+        authType = AuthType.API_KEY,
+        authHeader = "",
+        tokenHint = "Paste JSON: {\"access_key\":\"AKIA...\",\"secret_key\":\"...\",\"region\":\"us-east-1\"}",
+        models = listOf(
+            AiModel("anthropic.claude-sonnet-4-6-20250514-v1:0", "Claude Sonnet 4.6"),
+            AiModel("anthropic.claude-haiku-4-5-20251001-v1:0", "Claude Haiku 4.5"),
+            AiModel("us.anthropic.claude-opus-4-6-20250610-v1:0", "Claude Opus 4.6 (cross-region)"),
+            AiModel("us.meta.llama4-maverick-17b-instruct-v1:0", "Llama 4 Maverick"),
+            AiModel("us.meta.llama4-scout-17b-instruct-v1:0", "Llama 4 Scout"),
+            AiModel("amazon.nova-pro-v1:0", "Amazon Nova Pro"),
+            AiModel("amazon.nova-lite-v1:0", "Amazon Nova Lite"),
+            AiModel("mistral.mistral-large-2407-v1:0", "Mistral Large 2407"),
+        ),
+    ),
     LOCAL_GEMMA(
         id = "local-gemma",
         displayName = "On-Device (Gemma 4)",
@@ -220,6 +322,10 @@ enum class AiProvider(
     val isLocal: Boolean
         get() = this == LOCAL_GEMMA
 
+    /** Whether this is Amazon Bedrock (uses SigV4 auth + Converse API). */
+    val isBedrock: Boolean
+        get() = this == BEDROCK
+
     /** Whether this is an Anthropic-compatible provider. */
     val isAnthropic: Boolean
         get() = this == ANTHROPIC || this == ANTHROPIC_TOKEN
@@ -232,6 +338,7 @@ enum class AiProvider(
         private val OPENAI_COMPATIBLE_PROVIDERS = setOf(
             OPENAI, OPENAI_CODEX, OPENROUTER, MISTRAL,
             TOGETHER, GROQ, XAI, DEEPSEEK, FIREWORKS,
+            QWEN, STEPFUN, NVIDIA_NIM, ZAI, CUSTOM,
         )
 
         fun fromId(id: String): AiProvider =

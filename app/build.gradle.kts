@@ -67,6 +67,7 @@ android {
             isReturnDefaultValues = true
             all {
                 it.useJUnitPlatform()
+                it.maxHeapSize = "1g"
             }
         }
     }
@@ -111,6 +112,7 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.logging)
+    implementation(libs.ktor.client.websockets)
 
     // Network - Ktor Server (for Phone Gateway) — Phase 3
     // implementation(libs.ktor.server.core)

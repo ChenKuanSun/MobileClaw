@@ -68,6 +68,7 @@ object ToolsModule {
                 connectTimeoutMillis = 15_000
                 socketTimeoutMillis = 60_000
             }
+            install(io.ktor.client.plugins.websocket.WebSockets)
         }
     }
 
@@ -250,8 +251,8 @@ object ToolsModule {
 
     @Provides
     @Singleton
-    fun provideMemoryTool(@ApplicationContext context: Context): MemoryTool {
-        return MemoryTool(context)
+    fun provideMemoryTool(memoryStore: ai.affiora.mobileclaw.agent.MemoryStore): MemoryTool {
+        return MemoryTool(memoryStore)
     }
 
     @Provides

@@ -122,5 +122,70 @@ object Connectors {
         description = "DALL-E image generation, Whisper STT, TTS",
     )
 
-    val ALL = listOf(NOTION, GITHUB, SLACK, SPOTIFY, GOOGLE, TELEGRAM, OPENAI)
+    val MATRIX = ConnectorConfig(
+        id = "matrix",
+        name = "Matrix",
+        icon = "forum",
+        authType = ConnectorAuthType.BOT_TOKEN,
+        authorizationUrl = null,
+        tokenUrl = null,
+        clientId = null,
+        scopes = emptyList(),
+        redirectUri = "",
+        description = "Decentralized chat (homeserver + user_id + access_token as JSON)",
+    )
+
+    val SLACK_APP = ConnectorConfig(
+        id = "slack_app",
+        name = "Slack (Socket Mode)",
+        icon = "chat",
+        authType = ConnectorAuthType.BOT_TOKEN,
+        authorizationUrl = null,
+        tokenUrl = null,
+        clientId = null,
+        scopes = emptyList(),
+        redirectUri = "",
+        description = "Real-time messaging via WebSocket ({\"app_token\":\"xapp-...\",\"bot_token\":\"xoxb-...\"})",
+    )
+
+    val FEISHU = ConnectorConfig(
+        id = "feishu",
+        name = "Feishu / Lark",
+        icon = "groups",
+        authType = ConnectorAuthType.BOT_TOKEN,
+        authorizationUrl = null,
+        tokenUrl = null,
+        clientId = null,
+        scopes = emptyList(),
+        redirectUri = "",
+        description = "Enterprise chat ({\"app_id\":\"cli_...\",\"app_secret\":\"...\",\"domain\":\"open.feishu.cn\"})",
+    )
+
+    val WHATSAPP = ConnectorConfig(
+        id = "whatsapp",
+        name = "WhatsApp",
+        icon = "message",
+        authType = ConnectorAuthType.BOT_TOKEN,
+        authorizationUrl = null,
+        tokenUrl = null,
+        clientId = null,
+        scopes = emptyList(),
+        redirectUri = "",
+        description = "Outbound messages ({\"access_token\":\"EAA...\",\"phone_number_id\":\"...\"})",
+    )
+
+    val TEAMS = ConnectorConfig(
+        id = "teams",
+        name = "Microsoft Teams",
+        icon = "groups",
+        authType = ConnectorAuthType.BOT_TOKEN,
+        authorizationUrl = null,
+        tokenUrl = null,
+        clientId = null,
+        scopes = emptyList(),
+        redirectUri = "",
+        description = "Outbound messaging ({\"tenant_id\":\"...\",\"client_id\":\"...\",\"client_secret\":\"...\"})",
+    )
+
+    val ALL = listOf(NOTION, GITHUB, SLACK, SPOTIFY, GOOGLE, TELEGRAM, OPENAI, MATRIX, SLACK_APP, FEISHU, WHATSAPP, TEAMS)
 }

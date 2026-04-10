@@ -63,6 +63,7 @@ class ChatViewModelTest {
         Dispatchers.setMain(testDispatcher)
 
         application = mockk(relaxed = true)
+        every { application.getSystemService(any<String>()) } returns mockk<android.app.NotificationManager>(relaxed = true)
         agentRuntime = mockk(relaxed = true)
         systemPromptBuilder = mockk()
         chatMessageDao = mockk(relaxed = true)
@@ -109,7 +110,7 @@ class ChatViewModelTest {
         val agentFlow = flow<AgentEvent> {
             emit(AgentEvent.Text("Hello back!"))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -133,7 +134,7 @@ class ChatViewModelTest {
         val agentFlow = flow<AgentEvent> {
             emit(AgentEvent.Text("Response"))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -150,7 +151,7 @@ class ChatViewModelTest {
         val agentFlow = flow<AgentEvent> {
             emit(AgentEvent.Text("I can help with that."))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -170,7 +171,7 @@ class ChatViewModelTest {
         val agentFlow = flow<AgentEvent> {
             emit(AgentEvent.Text("Done"))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -198,7 +199,7 @@ class ChatViewModelTest {
                 requestId = "req-123",
             ))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         viewModel.sendMessage("Send a text")
         advanceUntilIdle()
@@ -228,7 +229,7 @@ class ChatViewModelTest {
                 requestId = "req-456",
             ))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         viewModel.sendMessage("Delete John")
         advanceUntilIdle()
@@ -244,7 +245,7 @@ class ChatViewModelTest {
         val agentFlow = flow<AgentEvent> {
             emit(AgentEvent.Error("API rate limit exceeded"))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -265,7 +266,7 @@ class ChatViewModelTest {
         val agentFlow = flow<AgentEvent> {
             throw RuntimeException("Network failure")
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -299,7 +300,7 @@ class ChatViewModelTest {
         val neverEndingFlow = flow<AgentEvent> {
             kotlinx.coroutines.awaitCancellation()
         }
-        every { agentRuntime.run(any(), any(), any()) } returns neverEndingFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns neverEndingFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -334,7 +335,7 @@ class ChatViewModelTest {
                 result = ToolResult.Success(data = "3 unread messages"),
             ))
         }
-        every { agentRuntime.run(any(), any(), any()) } returns agentFlow
+        every { agentRuntime.run(any(), any(), any(), any()) } returns agentFlow
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -366,7 +367,7 @@ class ChatViewModelTest {
     @Test
     fun `conversation is created on first message`() = runTest {
         coEvery { conversationDao.getConversationById(any()) } returns null
-        every { agentRuntime.run(any(), any(), any()) } returns flowOf()
+        every { agentRuntime.run(any(), any(), any(), any()) } returns flowOf()
 
         val viewModel = createViewModel()
         advanceUntilIdle()

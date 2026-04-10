@@ -87,6 +87,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -584,6 +585,24 @@ private fun ProviderPage(
 
         Spacer(Modifier.height(24.dp))
 
+        // ── Custom Provider config (Ollama / LM Studio / vLLM) ──
+        // Always visible so users can configure + activate a self-hosted endpoint
+        // without going through the AddKeyDialog (which is token-only).
+        Text(
+            "SELF-HOSTED",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(8.dp))
+        CustomProviderCard(
+            viewModel = viewModel,
+            // Always target the CUSTOM provider entry regardless of current selection
+            selectedProvider = AiProvider.CUSTOM,
+            selectedModel = if (selectedProvider == AiProvider.CUSTOM) selectedModel else "",
+        )
+        Spacer(Modifier.height(24.dp))
+
         // ── Model ──
         if (availableModels.isNotEmpty()) {
             Text(
@@ -665,6 +684,97 @@ private fun maskToken(token: String): String {
     return "${"*".repeat(minOf(token.length - 4, 12))}${token.takeLast(4)}"
 }
 
+/**
+ * Configuration card for CUSTOM provider (Ollama / LM Studio / vLLM / any OpenAI-compatible).
+ * User enters Base URL + free-form Model ID. Token is optional (Ollama has no auth).
+ */
+@Composable
+private fun CustomProviderCard(
+    viewModel: SettingsViewModel,
+    selectedProvider: AiProvider,
+    selectedModel: String,
+) {
+    val providerTokens by viewModel.providerTokens.collectAsStateWithLifecycle()
+    var baseUrl by remember(selectedProvider.id) { mutableStateOf("") }
+    var modelId by remember(selectedProvider.id) { mutableStateOf(selectedModel) }
+    var token by remember(selectedProvider.id) { mutableStateOf("") }
+
+    // Load saved values whenever provider changes — LaunchedEffect key handles re-runs
+    LaunchedEffect(selectedProvider.id) {
+        baseUrl = viewModel.getBaseUrlForProvider(selectedProvider.id)
+        // Read token from already-loaded state (avoids EncryptedSharedPreferences on main thread)
+        token = providerTokens.firstOrNull { it.provider.id == selectedProvider.id }?.token ?: ""
+    }
+
+    // Keep modelId in sync when selectedModel changes (e.g. switching back to CUSTOM)
+    LaunchedEffect(selectedModel) {
+        modelId = selectedModel
+    }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "CUSTOM ENDPOINT",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Connect to Ollama, LM Studio, vLLM, or any OpenAI-compatible server. " +
+                    "For remote desktops, use Tailscale to securely reach your machine from your phone. " +
+                    "Include the /v1 prefix in the URL — only /chat/completions is appended.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = baseUrl,
+                onValueChange = { baseUrl = it },
+                label = { Text("Base URL (include /v1)") },
+                placeholder = { Text("http://desktop.tail-net.ts.net:11434/v1") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = modelId,
+                onValueChange = { modelId = it },
+                label = { Text("Model ID") },
+                placeholder = { Text("qwen2.5:32b") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = token,
+                onValueChange = { token = it },
+                label = { Text("Bearer Token (optional)") },
+                placeholder = { Text("Leave blank for Ollama") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    viewModel.updateBaseUrlForProvider(selectedProvider.id, baseUrl)
+                    viewModel.updateTokenForProvider(selectedProvider.id, token)
+                    // Switch the active provider to CUSTOM and set its model in one shot
+                    viewModel.updateProviderAndModel(selectedProvider, modelId)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = baseUrl.isNotBlank() && modelId.isNotBlank(),
+            ) {
+                Text("Save & Activate")
+            }
+        }
+    }
+}
+
 /** Dialog for adding a new API key. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -673,8 +783,8 @@ private fun AddKeyDialog(
     onDismiss: () -> Unit,
     onAdd: (providerId: String, token: String) -> Unit,
 ) {
-    // Show all cloud providers (local models don't use API keys)
-    val allProviders = AiProvider.entries.filter { !it.isLocal }
+    // Show all cloud providers (local models don't use API keys; CUSTOM has its own card)
+    val allProviders = AiProvider.entries.filter { !it.isLocal && !it.requiresCustomBaseUrl }
     // Default to first unconfigured provider, or first provider
     val defaultProvider = allProviders.firstOrNull { it.id !in configuredProviderIds } ?: allProviders.first()
 

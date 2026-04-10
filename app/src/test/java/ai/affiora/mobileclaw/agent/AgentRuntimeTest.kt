@@ -38,6 +38,7 @@ class AgentRuntimeTest {
         apiClient = mockk()
         userPreferences = mockk()
         permissionManager = mockk()
+        every { apiClient.setLocalTools(any()) } returns Unit
         every { userPreferences.selectedModel } returns flowOf(testModel)
         every { permissionManager.shouldAutoApprove(any()) } returns false
     }
@@ -106,7 +107,7 @@ class AgentRuntimeTest {
 
     @Test
     fun `simple text response emits single Text event then completes`() = runTest {
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returns
             textResponse(text = "Hello, world!")
 
         val rt = buildRuntime()
@@ -125,7 +126,7 @@ class AgentRuntimeTest {
     fun `tool use emits ToolCalling and ToolResultEvent then continues loop`() = runTest {
         val toolInput = JsonObject(mapOf("query" to JsonPrimitive("weather")))
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returnsMany listOf(
             toolUseResponse(toolName = "search", input = toolInput),
             textResponse(text = "The weather is sunny."),
         )
@@ -161,7 +162,7 @@ class AgentRuntimeTest {
         val toolInput = JsonObject(mapOf("to" to JsonPrimitive("+1234567890")))
         val requestId = "confirm_001"
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returnsMany listOf(
             toolUseResponse(toolName = "sms", input = toolInput),
             textResponse(text = "Message sent."),
         )
@@ -218,7 +219,7 @@ class AgentRuntimeTest {
         val toolInput = JsonObject(mapOf("number" to JsonPrimitive("+1234567890")))
         val requestId = "confirm_002"
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returnsMany listOf(
             toolUseResponse(toolName = "call", input = toolInput),
             textResponse(text = "Okay, I won't make the call."),
         )
@@ -271,7 +272,7 @@ class AgentRuntimeTest {
         val toolInput = JsonObject(mapOf("q" to JsonPrimitive("loop")))
 
         // Every API call returns tool_use so the loop never breaks naturally
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returns
             toolUseResponse(
                 id = "msg_loop",
                 toolUseId = "toolu_loop",
@@ -305,7 +306,7 @@ class AgentRuntimeTest {
     @Test
     fun `API error emits Error event with status code and body`() = runTest {
         val errorBody = """{"error":{"type":"rate_limit_error","message":"Too many requests"}}"""
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } throws
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } throws
             ClaudeApiException(429, errorBody)
 
         val rt = buildRuntime()
@@ -320,7 +321,7 @@ class AgentRuntimeTest {
 
     @Test
     fun `unexpected exception emits Error event`() = runTest {
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } throws
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } throws
             RuntimeException("Connection refused")
 
         val rt = buildRuntime()
@@ -340,7 +341,7 @@ class AgentRuntimeTest {
     fun `unknown tool emits ToolCalling then error ToolResultEvent`() = runTest {
         val toolInput = JsonObject(mapOf("x" to JsonPrimitive("y")))
 
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returnsMany listOf(
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returnsMany listOf(
             toolUseResponse(
                 toolName = "nonexistent_tool",
                 toolUseId = "toolu_unknown",
@@ -375,7 +376,7 @@ class AgentRuntimeTest {
 
     @Test
     fun `RawAssistantTurn is emitted after processing API response`() = runTest {
-        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any()) } returns
+        coEvery { apiClient.sendMessage(any<ClaudeRequest>(), any(), any(), any()) } returns
             textResponse(text = "Hi!")
 
         val rt = buildRuntime()
