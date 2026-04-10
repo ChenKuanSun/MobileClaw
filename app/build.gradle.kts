@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "ai.affiora.mobileclaw"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ai.affiora.mobileclaw"
