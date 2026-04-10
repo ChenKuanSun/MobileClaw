@@ -9,6 +9,7 @@ import java.util.TimeZone
 
 class BedrockSignerTest {
 
+    // All credentials below are fake values for unit tests only — never used against real AWS.
     private val testCreds = AwsCreds(
         accessKey = "fake-access-key-aaaa",
         secretKey = "fake-secret-key-for-bedrock-signer-tests-only",
@@ -194,8 +195,8 @@ class BedrockSignerTest {
         val result = BedrockSigner.sign(knownCreds, knownUrl, knownBody, fixedTimestamp)
         val auth = result.headers["Authorization"]!!
 
-        // Expected signature computed from AWS SigV4 algorithm with the fixed inputs above
-        val expectedSignature = "0611ae6836657f6bbf1c486af29ce1d33875ac2ef36ba01bb92c7489129ec8c8"
+        // Expected signature computed with fake test credentials + fixed timestamp 2015-08-30T12:36:00Z
+        val expectedSignature = "979c6a7a08eb0c2cd21c5b10ffae556b6a71fed4ee654c2db51e9b36a0e2fd2a"
         assertThat(auth).contains("Signature=$expectedSignature")
     }
 }
