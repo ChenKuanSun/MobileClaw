@@ -21,6 +21,24 @@ android {
         testInstrumentationRunner = "ai.affiora.mobileclaw.HiltTestRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            // Local-only keystore at ~/.android/mobileclaw-release.keystore.
+            // Password read from env (MOBILECLAW_KEYSTORE_PASSWORD) or ~/.gradle/gradle.properties
+            // (mobileclaw.keystore.password). Neither the keystore nor the password is in git.
+            val keystoreFile = file("${System.getProperty("user.home")}/.android/mobileclaw-release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                keyAlias = "mobileclaw"
+                val pw = System.getenv("MOBILECLAW_KEYSTORE_PASSWORD")
+                    ?: (project.findProperty("mobileclaw.keystore.password") as String?)
+                    ?: ""
+                storePassword = pw
+                keyPassword = pw
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -29,6 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             isMinifyEnabled = false
