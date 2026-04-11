@@ -108,13 +108,7 @@ class AgentRuntime @Inject constructor(
             val response = try {
                 callApiStreaming(request)
             } catch (e: ClaudeApiException) {
-                // FIX 8: Better error messages for common failures
-                val errorMsg = when (e.statusCode) {
-                    401 -> "API error (401): Unauthorized. Check your API key in Settings."
-                    429 -> "API error (429): ${e.errorBody} Rate limited. Will retry automatically."
-                    else -> "API error (${e.statusCode}): ${e.errorBody}"
-                }
-                emit(AgentEvent.Error(errorMsg))
+                emit(AgentEvent.Error(formatApiError(e)))
                 return@flow
             } catch (e: java.net.UnknownHostException) {
                 emit(AgentEvent.Error("No internet connection. Check your network."))
@@ -371,13 +365,7 @@ class AgentRuntime @Inject constructor(
             val response = try {
                 callApiStreaming(request)
             } catch (e: ClaudeApiException) {
-                // FIX 8: Better error messages for common failures
-                val errorMsg = when (e.statusCode) {
-                    401 -> "API error (401): Unauthorized. Check your API key in Settings."
-                    429 -> "API error (429): ${e.errorBody} Rate limited. Will retry automatically."
-                    else -> "API error (${e.statusCode}): ${e.errorBody}"
-                }
-                emit(AgentEvent.Error(errorMsg))
+                emit(AgentEvent.Error(formatApiError(e)))
                 return@flow
             } catch (e: java.net.UnknownHostException) {
                 emit(AgentEvent.Error("No internet connection. Check your network."))
@@ -549,5 +537,47 @@ class AgentRuntime @Inject constructor(
     companion object {
         private const val MAX_ITERATIONS = 200
         private const val MAX_TOKENS = 8192
+    }
+}
+
+/**
+ * Format a ClaudeApiException into a user-facing error string, with hints for
+ * known provider-specific failure modes (e.g. OpenRouter data-policy guardrails).
+ *
+ * Design notes on the string-matching gates:
+ * - OpenRouter guardrail blocks return HTTP 404 with "guardrail" in the body.
+ *   AWS Bedrock Guardrails (a separate product) return 400, not 404, so the
+ *   status-code gate is the primary disambiguator; we also exclude bodies
+ *   that mention "bedrock" to be safe.
+ * - We match OpenRouter's exact phrase "insufficient credits" rather than the
+ *   bare word "credit" to avoid misclassifying Stripe/billing errors from
+ *   OpenAI/Mistral/Together that mention "credit card", "credit limit", etc.
+ */
+internal fun formatApiError(e: ClaudeApiException): String {
+    val body = e.errorBody
+    // OpenRouter: 404 "No endpoints available matching your guardrail restrictions and data policy"
+    // is an account-side privacy setting, not a code bug. Surface the fix URL directly.
+    if (e.statusCode == 404 &&
+        body.contains("guardrail", ignoreCase = true) &&
+        !body.contains("bedrock", ignoreCase = true)
+    ) {
+        return "OpenRouter rejected this model due to your data policy settings. " +
+            "Open https://openrouter.ai/settings/privacy on the web, accept the data " +
+            "policy for this model family, then retry. (Some free/China-hosted models " +
+            "require explicit opt-in.)"
+    }
+    // OpenRouter: 402 "Insufficient credits" — exact phrase to avoid Stripe false positives
+    if (e.statusCode == 402 && body.contains("insufficient credits", ignoreCase = true)) {
+        return "Out of credits. Top up your provider account and retry."
+    }
+    // Bedrock cross-region: 403 AccessDeniedException with "is not authorized to perform: bedrock:InvokeModel"
+    if (e.statusCode == 403 && body.contains("bedrock:InvokeModel", ignoreCase = true)) {
+        return "Bedrock denied access to this model. Enable model access in the AWS " +
+            "Bedrock console (Model access page) for your region, then retry."
+    }
+    return when (e.statusCode) {
+        401 -> "API error (401): Unauthorized. Check your API key in Settings."
+        429 -> "API error (429): $body Rate limited. Will retry automatically."
+        else -> "API error (${e.statusCode}): $body"
     }
 }

@@ -695,20 +695,56 @@ private fun CustomProviderCard(
     selectedModel: String,
 ) {
     val providerTokens by viewModel.providerTokens.collectAsStateWithLifecycle()
-    var baseUrl by remember(selectedProvider.id) { mutableStateOf("") }
-    var modelId by remember(selectedProvider.id) { mutableStateOf(selectedModel) }
-    var token by remember(selectedProvider.id) { mutableStateOf("") }
 
-    // Load saved values whenever provider changes — LaunchedEffect key handles re-runs
-    LaunchedEffect(selectedProvider.id) {
+    // Derive whether CUSTOM is currently saved from the providerTokens state
+    // (hasToken is true for CUSTOM when baseUrl is set — see loadProviderTokens).
+    val customConfigured = providerTokens
+        .firstOrNull { it.provider.id == selectedProvider.id }
+        ?.hasToken == true
+
+    var baseUrl by remember(selectedProvider.id) { mutableStateOf("") }
+    var modelId by remember(selectedProvider.id) { mutableStateOf(if (selectedModel.isNotBlank()) selectedModel else "") }
+    var token by remember(selectedProvider.id) { mutableStateOf("") }
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    // Load saved values whenever provider changes OR whenever the saved state flips
+    // (e.g. after a Clear wipes DataStore we want the fields to reflect empty).
+    LaunchedEffect(selectedProvider.id, customConfigured) {
         baseUrl = viewModel.getBaseUrlForProvider(selectedProvider.id)
         // Read token from already-loaded state (avoids EncryptedSharedPreferences on main thread)
         token = providerTokens.firstOrNull { it.provider.id == selectedProvider.id }?.token ?: ""
     }
 
-    // Keep modelId in sync when selectedModel changes (e.g. switching back to CUSTOM)
+    // Keep modelId in sync when selectedModel changes AND we're currently on CUSTOM
     LaunchedEffect(selectedModel) {
-        modelId = selectedModel
+        if (selectedModel.isNotBlank()) modelId = selectedModel
+    }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Clear custom endpoint?") },
+            text = {
+                Text(
+                    "This wipes the Base URL and Bearer Token, then switches to " +
+                        "another configured provider (or resets to default if none).",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearCustomProvider(selectedProvider.id)
+                    baseUrl = ""
+                    modelId = ""
+                    token = ""
+                    showClearConfirm = false
+                }) {
+                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+            },
+        )
     }
 
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -721,9 +757,15 @@ private fun CustomProviderCard(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Connect to Ollama, LM Studio, vLLM, or any OpenAI-compatible server. " +
-                    "For remote desktops, use Tailscale to securely reach your machine from your phone. " +
-                    "Include the /v1 prefix in the URL — only /chat/completions is appended.",
+                text = "Only for self-hosted OpenAI-compatible servers (Ollama, LM Studio, vLLM). " +
+                    "Do NOT enter cloud provider URLs here — use their dedicated entries above.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "For remote desktops, use Tailscale. Include /v1 in the URL — " +
+                    "only /chat/completions is appended.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -759,17 +801,38 @@ private fun CustomProviderCard(
             )
             Spacer(Modifier.height(16.dp))
 
-            Button(
-                onClick = {
-                    viewModel.updateBaseUrlForProvider(selectedProvider.id, baseUrl)
-                    viewModel.updateTokenForProvider(selectedProvider.id, token)
-                    // Switch the active provider to CUSTOM and set its model in one shot
-                    viewModel.updateProviderAndModel(selectedProvider, modelId)
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = baseUrl.isNotBlank() && modelId.isNotBlank(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("Save & Activate")
+                Button(
+                    onClick = {
+                        viewModel.updateBaseUrlForProvider(selectedProvider.id, baseUrl)
+                        viewModel.updateTokenForProvider(selectedProvider.id, token)
+                        // Switch the active provider to CUSTOM and set its model in one shot
+                        viewModel.updateProviderAndModel(selectedProvider, modelId)
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = baseUrl.isNotBlank() && modelId.isNotBlank(),
+                ) {
+                    Text("Save & Activate")
+                }
+                if (customConfigured) {
+                    OutlinedButton(
+                        onClick = { showClearConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Icon(
+                            Icons.Filled.DeleteForever,
+                            contentDescription = "Clear",
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Clear")
+                    }
+                }
             }
         }
     }

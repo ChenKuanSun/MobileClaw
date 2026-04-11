@@ -148,6 +148,40 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Fully clear a custom (self-hosted) provider's configuration.
+     * Wipes base URL, token, and the selected model (if this provider was active),
+     * then switches the active provider to the first other configured provider,
+     * or to DEFAULT_PROVIDER if none are configured (so the "no keys" UI surfaces
+     * correctly instead of silently leaving a broken CUSTOM active).
+     */
+    fun clearCustomProvider(providerId: String) {
+        viewModelScope.launch {
+            userPreferences.setBaseUrlForProvider(providerId, "")
+            userPreferences.setTokenForProvider(providerId, "")
+            // If the cleared provider was active, hand off to the first configured
+            // fallback — or reset to DEFAULT_PROVIDER if nothing else is configured.
+            val currentProvider = userPreferences.selectedProvider.first()
+            if (currentProvider == providerId) {
+                val updated = loadProviderTokens()
+                val fallback = updated.firstOrNull { it.hasToken && it.provider.id != providerId }
+                if (fallback != null) {
+                    userPreferences.setSelectedProvider(fallback.provider.id)
+                    fallback.provider.models.firstOrNull()?.let { userPreferences.setSelectedModel(it.id) }
+                } else {
+                    // No other provider configured — reset to defaults so the "no keys"
+                    // onboarding UI surfaces instead of leaving CUSTOM active with a
+                    // wiped config (which would throw "Base URL not configured" on send).
+                    userPreferences.setSelectedProvider(UserPreferences.DEFAULT_PROVIDER)
+                    userPreferences.setSelectedModel(UserPreferences.DEFAULT_MODEL)
+                }
+            }
+            val updated = loadProviderTokens()
+            _providerTokens.value = updated
+            _noKeysConfigured.value = updated.none { it.hasToken }
+        }
+    }
+
     /** Models only from providers with configured keys. */
     fun getAvailableModels(): List<Pair<AiProvider, AiModel>> {
         return _providerTokens.value
