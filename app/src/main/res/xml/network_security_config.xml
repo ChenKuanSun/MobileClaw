@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network security config for MobileClaw.
+
+  Android 9+ blocks cleartext HTTP by default. Cloud AI providers use HTTPS
+  and are unaffected. But self-hosted servers (Ollama, LM Studio, vLLM)
+  typically run on http:// at LAN IPs (192.168.x.x) or Tailscale IPs
+  (100.x.x.x). Android's domain-config only matches hostnames, NOT raw IP
+  addresses, so we must allow cleartext globally.
+
+  This is safe because:
+  - All cloud provider base URLs are hardcoded HTTPS in AiProvider.kt
+  - Only the user-configured CUSTOM provider can point to http://
+  - TLS certificate validation is unchanged for HTTPS connections
+
+  This is the standard pattern for apps that connect to local IoT devices,
+  dev servers, or self-hosted services (React Native, Home Assistant, etc.).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Debug builds also trust user-installed CA certs (e.g. Charles Proxy) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>
