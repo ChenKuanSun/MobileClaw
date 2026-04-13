@@ -24,11 +24,14 @@ class NetworkMonitor @Inject constructor(
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            _isOnline.value = true
+            // Don't optimistically mark online — onAvailable fires before capabilities
+            // are delivered, so we'd briefly show captive-portal Wi-Fi as online.
+            // Re-check via activeNetwork (will pick up any already-validated network).
+            _isOnline.value = checkCurrentConnectivity()
         }
 
         override fun onLost(network: Network) {
-            // Double-check — another network might still be available
+            // Another network might still be available
             _isOnline.value = checkCurrentConnectivity()
         }
 

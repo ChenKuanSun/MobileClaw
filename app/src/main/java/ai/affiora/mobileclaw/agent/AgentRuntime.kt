@@ -110,13 +110,9 @@ class AgentRuntime @Inject constructor(
             } catch (e: ClaudeApiException) {
                 emit(AgentEvent.Error(formatApiError(e)))
                 return@flow
-            } catch (e: java.net.UnknownHostException) {
-                emit(AgentEvent.Error(formatNetworkError(e)))
-                return@flow
-            } catch (e: java.net.ConnectException) {
-                emit(AgentEvent.Error(formatNetworkError(e)))
-                return@flow
-            } catch (e: java.net.SocketTimeoutException) {
+            } catch (e: java.io.IOException) {
+                // UnknownHostException / ConnectException / SocketTimeoutException all
+                // extend IOException; formatNetworkError dispatches to the right hint.
                 emit(AgentEvent.Error(formatNetworkError(e)))
                 return@flow
             } catch (e: Exception) {
@@ -370,13 +366,9 @@ class AgentRuntime @Inject constructor(
             } catch (e: ClaudeApiException) {
                 emit(AgentEvent.Error(formatApiError(e)))
                 return@flow
-            } catch (e: java.net.UnknownHostException) {
-                emit(AgentEvent.Error(formatNetworkError(e)))
-                return@flow
-            } catch (e: java.net.ConnectException) {
-                emit(AgentEvent.Error(formatNetworkError(e)))
-                return@flow
-            } catch (e: java.net.SocketTimeoutException) {
+            } catch (e: java.io.IOException) {
+                // UnknownHostException / ConnectException / SocketTimeoutException all
+                // extend IOException; formatNetworkError dispatches to the right hint.
                 emit(AgentEvent.Error(formatNetworkError(e)))
                 return@flow
             } catch (e: Exception) {
@@ -607,8 +599,8 @@ internal fun formatNetworkError(e: Throwable): String {
                 "(2) it's bound to 127.0.0.1 only — set OLLAMA_HOST=0.0.0.0:11434 or " +
                 "enable LM Studio's network exposure; (3) the port is blocked by a firewall."
         is java.net.SocketTimeoutException ->
-            "Network timeout. The server didn't respond in time. " +
-                "If using Tailscale, check the connection status in the Tailscale app."
+            "The server is taking too long to respond. Check your network signal. " +
+                "(If using Tailscale or another VPN, also verify the tunnel is up.)"
         else ->
             "Network error: ${e.message ?: e.javaClass.simpleName}"
     }

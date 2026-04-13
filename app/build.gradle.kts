@@ -15,8 +15,8 @@ android {
         applicationId = "ai.affiora.mobileclaw"
         minSdk = 29
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.2.3"
+        versionCode = 5
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "ai.affiora.mobileclaw.HiltTestRunner"
     }

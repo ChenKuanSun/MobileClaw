@@ -90,11 +90,27 @@ class FormatApiErrorTest {
 
     @Test
     fun `UnknownHostException mentions Tailscale MagicDNS hint`() {
-        val msg = formatNetworkError(java.net.UnknownHostException("desktop.tail-net.ts.net"))
+        // Real JVM UnknownHostException messages have the format
+        // "hostname: No address associated with hostname" — formatNetworkError
+        // extracts the hostname via substringBefore(":").
+        val msg = formatNetworkError(
+            java.net.UnknownHostException("desktop.tail-net.ts.net: No address associated with hostname"),
+        )
         assertThat(msg).contains("Could not resolve")
         assertThat(msg).contains("Tailscale")
         assertThat(msg).contains("MagicDNS")
+        assertThat(msg).contains("(desktop.tail-net.ts.net)")
+        // Hostname only — no leak of "No address associated..." into the parens
+        assertThat(msg).doesNotContain("No address associated")
         assertThat(msg).doesNotContain("No internet connection")
+    }
+
+    @Test
+    fun `UnknownHostException with bare hostname (no colon) still formats sensibly`() {
+        // Some code paths (especially mocks) construct UnknownHostException with
+        // just the hostname. substringBefore returns the whole string in that case.
+        val msg = formatNetworkError(java.net.UnknownHostException("bare-host.example"))
+        assertThat(msg).contains("(bare-host.example)")
     }
 
     @Test
@@ -107,10 +123,14 @@ class FormatApiErrorTest {
     }
 
     @Test
-    fun `SocketTimeoutException suggests checking Tailscale status`() {
+    fun `SocketTimeoutException leads with generic cause and parenthetical VPN hint`() {
         val msg = formatNetworkError(java.net.SocketTimeoutException("read timeout"))
-        assertThat(msg).contains("timeout")
-        assertThat(msg).contains("Tailscale")
+        // Generic cause should come first (not "Tailscale" as the lede — confusing
+        // for users on cellular hitting a regular cloud-provider timeout).
+        assertThat(msg).contains("taking too long to respond")
+        assertThat(msg).contains("network signal")
+        // VPN hint is parenthetical / conditional, not the primary message
+        assertThat(msg).contains("(If using Tailscale")
     }
 
     @Test
