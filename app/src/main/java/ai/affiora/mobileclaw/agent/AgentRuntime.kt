@@ -111,10 +111,13 @@ class AgentRuntime @Inject constructor(
                 emit(AgentEvent.Error(formatApiError(e)))
                 return@flow
             } catch (e: java.net.UnknownHostException) {
-                emit(AgentEvent.Error("No internet connection. Check your network."))
+                emit(AgentEvent.Error(formatNetworkError(e)))
                 return@flow
             } catch (e: java.net.ConnectException) {
-                emit(AgentEvent.Error("No internet connection. Check your network."))
+                emit(AgentEvent.Error(formatNetworkError(e)))
+                return@flow
+            } catch (e: java.net.SocketTimeoutException) {
+                emit(AgentEvent.Error(formatNetworkError(e)))
                 return@flow
             } catch (e: Exception) {
                 emit(AgentEvent.Error("Unexpected error: ${e.message ?: "unknown"}"))
@@ -368,10 +371,13 @@ class AgentRuntime @Inject constructor(
                 emit(AgentEvent.Error(formatApiError(e)))
                 return@flow
             } catch (e: java.net.UnknownHostException) {
-                emit(AgentEvent.Error("No internet connection. Check your network."))
+                emit(AgentEvent.Error(formatNetworkError(e)))
                 return@flow
             } catch (e: java.net.ConnectException) {
-                emit(AgentEvent.Error("No internet connection. Check your network."))
+                emit(AgentEvent.Error(formatNetworkError(e)))
+                return@flow
+            } catch (e: java.net.SocketTimeoutException) {
+                emit(AgentEvent.Error(formatNetworkError(e)))
                 return@flow
             } catch (e: Exception) {
                 emit(AgentEvent.Error("Unexpected error: ${e.message ?: "unknown"}"))
@@ -579,5 +585,31 @@ internal fun formatApiError(e: ClaudeApiException): String {
         401 -> "API error (401): Unauthorized. Check your API key in Settings."
         429 -> "API error (429): $body Rate limited. Will retry automatically."
         else -> "API error (${e.statusCode}): $body"
+    }
+}
+
+/**
+ * Format a network-layer exception into a user-facing message that distinguishes
+ * DNS failures (UnknownHostException) from connection refusals (ConnectException),
+ * with extra hints for self-hosted endpoint scenarios.
+ */
+internal fun formatNetworkError(e: Throwable): String {
+    val host = e.message?.substringBefore(":")?.trim().orEmpty()
+    return when (e) {
+        is java.net.UnknownHostException ->
+            "Could not resolve the server hostname${if (host.isNotEmpty()) " ($host)" else ""}. " +
+                "If using Tailscale, verify MagicDNS is enabled in the admin console " +
+                "and the phone is connected to the tailnet. For LAN/Ollama, prefer " +
+                "the raw IP (e.g. http://192.168.1.50:11434/v1) over a hostname."
+        is java.net.ConnectException ->
+            "Connection refused. The server isn't reachable. Common causes: " +
+                "(1) the local server (Ollama / LM Studio / vLLM) isn't running; " +
+                "(2) it's bound to 127.0.0.1 only — set OLLAMA_HOST=0.0.0.0:11434 or " +
+                "enable LM Studio's network exposure; (3) the port is blocked by a firewall."
+        is java.net.SocketTimeoutException ->
+            "Network timeout. The server didn't respond in time. " +
+                "If using Tailscale, check the connection status in the Tailscale app."
+        else ->
+            "Network error: ${e.message ?: e.javaClass.simpleName}"
     }
 }

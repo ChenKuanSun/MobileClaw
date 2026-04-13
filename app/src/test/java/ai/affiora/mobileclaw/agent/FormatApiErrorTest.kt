@@ -85,4 +85,38 @@ class FormatApiErrorTest {
         assertThat(msg).contains("500")
         assertThat(msg).contains("Internal server error")
     }
+
+    // ── formatNetworkError tests ─────────────────────────────────────────
+
+    @Test
+    fun `UnknownHostException mentions Tailscale MagicDNS hint`() {
+        val msg = formatNetworkError(java.net.UnknownHostException("desktop.tail-net.ts.net"))
+        assertThat(msg).contains("Could not resolve")
+        assertThat(msg).contains("Tailscale")
+        assertThat(msg).contains("MagicDNS")
+        assertThat(msg).doesNotContain("No internet connection")
+    }
+
+    @Test
+    fun `ConnectException mentions OLLAMA_HOST and bind hint`() {
+        val msg = formatNetworkError(java.net.ConnectException("Connection refused"))
+        assertThat(msg).contains("Connection refused")
+        assertThat(msg).contains("Ollama")
+        assertThat(msg).contains("OLLAMA_HOST=0.0.0.0")
+        assertThat(msg).doesNotContain("No internet connection")
+    }
+
+    @Test
+    fun `SocketTimeoutException suggests checking Tailscale status`() {
+        val msg = formatNetworkError(java.net.SocketTimeoutException("read timeout"))
+        assertThat(msg).contains("timeout")
+        assertThat(msg).contains("Tailscale")
+    }
+
+    @Test
+    fun `unknown network exception falls through to message`() {
+        val msg = formatNetworkError(java.net.SocketException("Broken pipe"))
+        assertThat(msg).contains("Network error")
+        assertThat(msg).contains("Broken pipe")
+    }
 }
