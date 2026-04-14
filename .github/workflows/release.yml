@@ -17,7 +17,7 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew assembleRelease
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: app/build/outputs/apk/release/app-release-unsigned.apk
           generate_release_notes: true
