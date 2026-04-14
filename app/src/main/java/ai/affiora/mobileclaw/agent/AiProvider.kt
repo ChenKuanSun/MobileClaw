@@ -243,6 +243,8 @@ enum class AiProvider(
             AiModel("meta/llama-4-scout-17b-16e-instruct", "Llama 4 Scout"),
             AiModel("nvidia/nemotron-3-super-120b-a12b", "Nemotron 3 Super 120B"),
             AiModel("nvidia/llama-3.1-nemotron-ultra-253b-v1", "Nemotron Ultra 253B"),
+            AiModel("minimaxai/minimax-m2.7", "MiniMax M2.7"),
+            AiModel("minimaxai/minimax-m2.5", "MiniMax M2.5"),
             AiModel("deepseek-ai/deepseek-r1", "DeepSeek R1"),
             AiModel("deepseek-ai/deepseek-v3", "DeepSeek V3"),
             AiModel("qwen/qwen3-235b-a22b", "Qwen 3 235B"),

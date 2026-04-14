@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
@@ -380,6 +381,10 @@ private fun ProviderPage(
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var showAddKeyDialog by remember { mutableStateOf(false) }
     var showRemoveKeyDialog by remember { mutableStateOf<AiProvider?>(null) }
+    // "Enter custom model ID" dialog — lets users call any model string the
+    // provider supports without waiting for us to hardcode it in AiProvider.kt
+    var customModelProvider by remember { mutableStateOf<AiProvider?>(null) }
+    var customModelInput by remember { mutableStateOf("") }
 
     val configuredKeys = providerTokens.filter { it.hasToken }
     val availableModels = viewModel.getAvailableModelsIncludingLocal()
@@ -394,6 +399,57 @@ private fun ProviderPage(
             onAdd = { providerId, token ->
                 viewModel.addKey(providerId, token)
                 showAddKeyDialog = false
+            },
+        )
+    }
+
+    // Custom model ID dialog
+    customModelProvider?.let { provider ->
+        AlertDialog(
+            onDismissRequest = {
+                customModelProvider = null
+                customModelInput = ""
+            },
+            title = { Text("Custom model for ${provider.displayName}") },
+            text = {
+                Column {
+                    Text(
+                        "Enter any model ID supported by ${provider.displayName}. " +
+                            "Your existing API key will be used.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = customModelInput,
+                        onValueChange = { customModelInput = it },
+                        label = { Text("Model ID") },
+                        placeholder = {
+                            Text(provider.models.firstOrNull()?.id ?: "provider/model-name")
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = customModelInput.trim()
+                        if (id.isNotBlank()) {
+                            viewModel.updateProviderAndModel(provider, id)
+                        }
+                        customModelProvider = null
+                        customModelInput = ""
+                    },
+                    enabled = customModelInput.isNotBlank(),
+                ) { Text("Use") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    customModelProvider = null
+                    customModelInput = ""
+                }) { Text("Cancel") }
             },
         )
     }
@@ -665,6 +721,35 @@ private fun ProviderPage(
                                 },
                                 onClick = {
                                     viewModel.updateProviderAndModel(prov, model.id)
+                                    modelDropdownExpanded = false
+                                },
+                            )
+                        }
+                        // Escape hatch: let the user type any model string the
+                        // provider supports without waiting for us to hardcode it.
+                        // Skip for Local (on-device models must be downloaded first)
+                        // and CUSTOM (already has its own free-form field).
+                        if (!provider.isLocal && !provider.requiresCustomBaseUrl) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Spacer(Modifier.width(12.dp))
+                                        Icon(
+                                            Icons.Filled.Edit,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Enter custom model ID…",
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    customModelInput = ""
+                                    customModelProvider = provider
                                     modelDropdownExpanded = false
                                 },
                             )
