@@ -50,6 +50,16 @@ class ClaudeApiClient @Inject constructor(
             level = LogLevel.INFO
             sanitizeHeader { it == "x-api-key" || it == "Authorization" || it == "x-goog-api-key" }
         }
+        // Without this, OkHttp's default 10s readTimeout silently kills any reasoning-
+        // model call (DeepSeek R1, MiniMax M2.x, Nemotron Ultra) that takes longer
+        // than 10s between packets — surfaced as SocketTimeoutException. Earlier we
+        // only installed this on the tool-use HttpClient in ToolsModule; this client
+        // is a separate instance that was defaulting to OkHttp's 10s read limit.
+        install(io.ktor.client.plugins.HttpTimeout) {
+            requestTimeoutMillis = HttpTimeouts.REQUEST_MS
+            connectTimeoutMillis = HttpTimeouts.CONNECT_MS
+            socketTimeoutMillis = HttpTimeouts.SOCKET_MS
+        }
     }
 
     // ── Backend instances ──────────────────────────────────────────────────
