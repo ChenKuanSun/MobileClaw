@@ -23,7 +23,18 @@ package ai.affiora.mobileclaw.agent
 object HttpTimeouts {
     const val REQUEST_MINUTES: Long = 15L
     const val CONNECT_SECONDS: Long = 30L
-    const val SOCKET_MINUTES: Long = 5L
+
+    // Intentionally matches REQUEST_MINUTES, not shorter. Rationale:
+    // socketTimeoutMillis is a per-packet idle timer (OkHttp readTimeout). For the
+    // non-streaming path (stream: false), the server buffers the entire response
+    // and holds the connection silent while the model thinks — for reasoning
+    // models (DeepSeek R1, MiniMax M2.x, Nemotron Ultra) this silence can run
+    // several minutes before the first byte arrives. If SOCKET_MINUTES is shorter
+    // than REQUEST_MINUTES, the idle timer kills the call before the total cap
+    // triggers, making the nominal request limit a lie. v1.2.7 had 5min here and
+    // effectively capped reasoning models at 5min despite advertising 15min.
+    // The total-request cap (REQUEST_MINUTES) still bounds worst-case resource use.
+    const val SOCKET_MINUTES: Long = REQUEST_MINUTES
 
     val REQUEST_MS: Long = REQUEST_MINUTES * 60L * 1000L
     val CONNECT_MS: Long = CONNECT_SECONDS * 1000L

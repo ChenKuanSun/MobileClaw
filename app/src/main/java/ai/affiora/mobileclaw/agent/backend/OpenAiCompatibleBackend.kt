@@ -146,7 +146,11 @@ class OpenAiCompatibleBackend(
 
         val contentBlocks = mutableListOf<ContentBlock>()
 
-        val textContent = (message["content"] as? JsonPrimitive)?.content
+        // JSON null becomes JsonNull (subclass of JsonPrimitive) — its .content
+        // returns the literal string "null", not kotlin null. Filter it out.
+        val textContent = (message["content"] as? JsonPrimitive)
+            ?.takeUnless { it is kotlinx.serialization.json.JsonNull }
+            ?.content
         if (!textContent.isNullOrBlank()) {
             contentBlocks.add(ContentBlock.TextBlock(textContent))
         }
@@ -164,6 +168,26 @@ class OpenAiCompatibleBackend(
             ))
         }
 
+        // Per OpenClaw #66167: reasoning models (MiniMax M2.x, DeepSeek R1, GLM
+        // thinking variants, etc.) return chain-of-thought in a separate
+        // `reasoning_content` field alongside `content`. Previously we silently
+        // dropped it, causing reasoning-only turns (where content is empty but
+        // reasoning_content is populated) to produce a blank chat bubble.
+        val reasoningContent = (message["reasoning_content"] as? JsonPrimitive)
+            ?.takeUnless { it is kotlinx.serialization.json.JsonNull }
+            ?.content
+            ?.takeIf { it.isNotBlank() }
+
+        // Reasoning-only recovery: if we have no visible output at all but the
+        // model did think, surface the reasoning as the visible answer so the
+        // user at least sees what the model was working on instead of a blank
+        // bubble. This is a graceful degradation — the ideal is a bounded
+        // continuation call (OpenClaw's approach) but requires a second round
+        // trip; this gives the user something useful for now.
+        if (contentBlocks.isEmpty() && reasoningContent != null) {
+            contentBlocks.add(ContentBlock.TextBlock(reasoningContent))
+        }
+
         val stopReason = when (finishReason) {
             "stop" -> "end_turn"
             "tool_calls" -> "tool_use"
@@ -176,6 +200,7 @@ class OpenAiCompatibleBackend(
             role = "assistant",
             content = contentBlocks,
             stopReason = stopReason,
+            thinkingText = reasoningContent,
         )
     }
 }

@@ -175,6 +175,12 @@ class SlackChannel(
                         handleEventsApi(payload, creds)
                     }
                     "slash_commands", "interactive" -> {
+                        // ACK only — dispatch is intentionally not implemented. If
+                        // dispatch is ever added here (block_actions, modal submit,
+                        // slash command handlers), per OpenClaw #66028 the handler
+                        // MUST call isAllowed(channelId) on the inferred channel id
+                        // before routing to channelManager, otherwise unpaired users
+                        // can trigger side effects via interaction callbacks.
                         if (envelope != null) {
                             runCatching {
                                 send(buildJsonObject { put("envelope_id", JsonPrimitive(envelope)) }.toString())
