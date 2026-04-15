@@ -123,14 +123,15 @@ class FormatApiErrorTest {
     }
 
     @Test
-    fun `SocketTimeoutException leads with generic cause and parenthetical VPN hint`() {
+    fun `SocketTimeoutException mentions configured timeout and reasoning models`() {
         val msg = formatNetworkError(java.net.SocketTimeoutException("read timeout"))
-        // Generic cause should come first (not "Tailscale" as the lede — confusing
-        // for users on cellular hitting a regular cloud-provider timeout).
-        assertThat(msg).contains("taking too long to respond")
-        assertThat(msg).contains("network signal")
-        // VPN hint is parenthetical / conditional, not the primary message
-        assertThat(msg).contains("(If using Tailscale")
+        // The message should name the specific timeout value (sourced from
+        // HttpTimeouts.REQUEST_MINUTES so the two never drift) and hint at
+        // reasoning models as the likely cause.
+        assertThat(msg).contains("${HttpTimeouts.REQUEST_MINUTES}-minute")
+        assertThat(msg).contains("reasoning model")
+        // VPN hint is parenthetical, not the lede
+        assertThat(msg).contains("Tailscale")
     }
 
     @Test

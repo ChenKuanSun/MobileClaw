@@ -599,8 +599,11 @@ internal fun formatNetworkError(e: Throwable): String {
                 "(2) it's bound to 127.0.0.1 only — set OLLAMA_HOST=0.0.0.0:11434 or " +
                 "enable LM Studio's network exposure; (3) the port is blocked by a firewall."
         is java.net.SocketTimeoutException ->
-            "The server is taking too long to respond. Check your network signal. " +
-                "(If using Tailscale or another VPN, also verify the tunnel is up.)"
+            "The server exceeded the ${HttpTimeouts.REQUEST_MINUTES}-minute response limit. " +
+                "For reasoning models (DeepSeek R1, MiniMax M2, Nemotron Ultra, etc.) try " +
+                "a simpler prompt or switch to a faster non-reasoning model. Also check " +
+                "your network signal (if using Tailscale or another VPN, verify the " +
+                "tunnel is up)."
         else ->
             "Network error: ${e.message ?: e.javaClass.simpleName}"
     }

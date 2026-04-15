@@ -64,9 +64,11 @@ object ToolsModule {
                 json(Json { ignoreUnknownKeys = true })
             }
             install(io.ktor.client.plugins.HttpTimeout) {
-                requestTimeoutMillis = 60_000
-                connectTimeoutMillis = 15_000
-                socketTimeoutMillis = 60_000
+                // Values live in HttpTimeouts so ToolsModule and the user-facing
+                // error messages in AgentRuntime.formatNetworkError stay in sync.
+                requestTimeoutMillis = ai.affiora.mobileclaw.agent.HttpTimeouts.REQUEST_MS
+                connectTimeoutMillis = ai.affiora.mobileclaw.agent.HttpTimeouts.CONNECT_MS
+                socketTimeoutMillis = ai.affiora.mobileclaw.agent.HttpTimeouts.SOCKET_MS
             }
             install(io.ktor.client.plugins.websocket.WebSockets)
         }
