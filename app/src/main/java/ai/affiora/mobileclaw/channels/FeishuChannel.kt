@@ -203,17 +203,21 @@ class FeishuChannel(
                     json.parseToJsonElement(bodyContent).jsonObject["text"]?.jsonPrimitive?.content
                 }.getOrNull() ?: continue
 
-                channelManager.onMessageReceived(
-                    IncomingMessage(
-                        channelId = id,
-                        chatId = chatId,
-                        senderId = chatId,  // pair by chat
-                        senderName = senderId,
-                        text = text,
-                        timestamp = createTime,
-                    ),
-                )
                 if (createTime > maxTs) maxTs = createTime
+
+                // Fire-and-forget: don't block pollOnce while the AI responds.
+                scope.launch {
+                    channelManager.onMessageReceived(
+                        IncomingMessage(
+                            channelId = id,
+                            chatId = chatId,
+                            senderId = chatId,
+                            senderName = senderId,
+                            text = text,
+                            timestamp = createTime,
+                        ),
+                    )
+                }
             }
             lastMsgTs[chatId] = maxTs
         }

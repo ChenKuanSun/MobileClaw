@@ -196,21 +196,35 @@ class TelegramChannel(
 
                         val mediaDesc = mediaDescriptions.joinToString("; ").ifBlank { null }
 
-                        channelManager.onMessageReceived(
-                            IncomingMessage(
-                                channelId = "telegram",
-                                chatId = msg.chat.id.toString(),
-                                senderId = msg.chat.id.toString(),
-                                senderName = msg.from?.firstName ?: "User",
-                                text = messageText,
-                                timestamp = msg.date * 1000L,
-                                imageBase64 = imageBase64,
-                                mediaDescription = mediaDesc,
-                            ),
-                        )
-
+                        // Advance offset BEFORE dispatching so polling continues
+                        // immediately. OpenClaw uses grammY's concurrent sink for
+                        // the same decoupling — we use scope.launch instead.
                         offset = update.updateId + 1
                         saveOffset(offset)
+
+                        val chatId = msg.chat.id.toString()
+
+                        // Fire-and-forget: AI response generation runs in a separate
+                        // coroutine so the polling loop is never blocked. Previously
+                        // this was a direct suspend call that froze polling for the
+                        // entire AI response time (up to 15 min for reasoning models).
+                        scope.launch {
+                            // Show "typing" immediately so the user knows we're working
+                            runCatching { sendTyping(chatId) }
+
+                            channelManager.onMessageReceived(
+                                IncomingMessage(
+                                    channelId = "telegram",
+                                    chatId = chatId,
+                                    senderId = chatId,
+                                    senderName = msg.from?.firstName ?: "User",
+                                    text = messageText,
+                                    timestamp = msg.date * 1000L,
+                                    imageBase64 = imageBase64,
+                                    mediaDescription = mediaDesc,
+                                ),
+                            )
+                        }
                     }
                 }
 

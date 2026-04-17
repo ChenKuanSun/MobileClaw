@@ -221,17 +221,21 @@ class SlackChannel(
         // If message is a top-level message in a channel that should become a thread, use ts.
         val threadTs = event["thread_ts"]?.jsonPrimitive?.content ?: tsStr
 
-        channelManager.onMessageReceived(
-            IncomingMessage(
-                channelId = id,
-                chatId = channelId,
-                senderId = channelId, // pair by Slack channel
-                senderName = userId,
-                text = text,
-                timestamp = ts,
-                threadId = threadTs,
-            ),
-        )
+        // Fire-and-forget: don't block the WebSocket frame loop while
+        // the AI generates a response (same fix as Telegram/Matrix).
+        scope.launch {
+            channelManager.onMessageReceived(
+                IncomingMessage(
+                    channelId = id,
+                    chatId = channelId,
+                    senderId = channelId,
+                    senderName = userId,
+                    text = text,
+                    timestamp = ts,
+                    threadId = threadTs,
+                ),
+            )
+        }
     }
 
     // ── Web API ─────────────────────────────────────────────────────────

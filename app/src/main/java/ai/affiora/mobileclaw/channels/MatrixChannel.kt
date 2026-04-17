@@ -175,18 +175,21 @@ class MatrixChannel(
                         if (msgtype != "m.text" && msgtype != "m.notice") return@forEach
                         val text = (content["body"] as? JsonPrimitive)?.content ?: return@forEach
 
-                        channelManager.onMessageReceived(
-                            IncomingMessage(
-                                channelId = id,
-                                chatId = roomId,
-                                senderId = roomId,        // pair by room (not user)
-                                senderName = evt.sender,
-                                text = text,
-                                timestamp = evt.originServerTs,
-                                // For replies, use the original event id so we thread back to the user
-                                threadId = evt.eventId.takeIf { it.isNotBlank() },
-                            ),
-                        )
+                        // Fire-and-forget: don't block the sync loop while
+                        // the AI generates a response (same fix as Telegram).
+                        scope.launch {
+                            channelManager.onMessageReceived(
+                                IncomingMessage(
+                                    channelId = id,
+                                    chatId = roomId,
+                                    senderId = roomId,
+                                    senderName = evt.sender,
+                                    text = text,
+                                    timestamp = evt.originServerTs,
+                                    threadId = evt.eventId.takeIf { it.isNotBlank() },
+                                ),
+                            )
+                        }
                     }
                 }
 
