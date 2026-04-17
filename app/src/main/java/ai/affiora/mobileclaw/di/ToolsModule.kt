@@ -70,7 +70,10 @@ object ToolsModule {
                 connectTimeoutMillis = ai.affiora.mobileclaw.agent.HttpTimeouts.CONNECT_MS
                 socketTimeoutMillis = ai.affiora.mobileclaw.agent.HttpTimeouts.SOCKET_MS
             }
-            install(io.ktor.client.plugins.websocket.WebSockets)
+            // NOTE: WebSockets plugin intentionally NOT installed here.
+            // Ktor's WebSocket pipeline interceptor can interfere with regular
+            // HTTP long-polling (Telegram getUpdates). SlackChannel, the only
+            // consumer of webSocket(), creates its own client with the plugin.
         }
     }
 

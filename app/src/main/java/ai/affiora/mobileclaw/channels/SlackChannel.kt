@@ -59,6 +59,14 @@ class SlackChannel(
 
     lateinit var channelManager: ChannelManager
 
+    // SlackChannel needs its own WebSocket-capable client because Ktor's
+    // WebSockets pipeline interceptor interferes with regular HTTP long-polling
+    // (breaks TelegramChannel getUpdates). The shared HttpClient from
+    // ToolsModule deliberately omits the WebSockets plugin for this reason.
+    private val wsHttpClient = HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
+        install(io.ktor.client.plugins.websocket.WebSockets)
+    }
+
     private var wsJob: Job? = null
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -152,7 +160,7 @@ class SlackChannel(
         // 2. Connect WebSocket (Slack URL already includes the auth; append debug_reconnects)
         val wsUrl = if (open.url.contains("?")) "${open.url}&debug_reconnects=true" else "${open.url}?debug_reconnects=true"
 
-        httpClient.webSocket(urlString = wsUrl) {
+        wsHttpClient.webSocket(urlString = wsUrl) {
             for (frame in incoming) {
                 if (frame !is Frame.Text) continue
                 val text = frame.readText()
